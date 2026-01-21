@@ -1,9 +1,14 @@
 #include <cstdio>
 
+// Platform headers (must come before GL on Windows)
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 // SDL2
 #include <SDL.h>
 
-// OpenGL
+// OpenGL (optional - imgui backend handles this, but needed if you call GL directly)
 #include <GL/gl.h>
 
 // ImGui
@@ -26,7 +31,8 @@
 // JSON
 #include <nlohmann/json.hpp>
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) 
+{
     (void)argc;
     (void)argv;
     printf("dartt-dashboard\n");

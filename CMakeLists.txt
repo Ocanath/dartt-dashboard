@@ -9,7 +9,30 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ============================================================================
 
 # SDL2 (system)
-find_package(SDL2 REQUIRED)
+# SDL2 Setup
+if(WIN32)
+    # Path to your local SDL2 copy
+    set(SDL2_DIR "${CMAKE_SOURCE_DIR}/external/SDL")
+
+    # Determine the target architecture
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        # 64-bit architecture
+        set(SDL2_LIB_DIR "${SDL2_DIR}/lib/x64")
+    else()
+        # 32-bit architecture
+        set(SDL2_LIB_DIR "${SDL2_DIR}/lib/x86")
+    endif()
+
+    # Include SDL2 headers
+    include_directories(${SDL2_DIR}/include)
+    
+    # Link SDL2 libraries
+else()
+    # Find SDL2 on other platforms
+    find_package(SDL2 REQUIRED)
+    include_directories(${SDL2_INCLUDE_DIRS})
+
+endif()
 
 # OpenGL
 find_package(OpenGL REQUIRED)
@@ -60,3 +83,14 @@ target_link_libraries(dartt_dashboard PRIVATE
     dartt_checksum
     nlohmann_json::nlohmann_json
 )
+
+if(WIN32)
+	target_link_libraries(${PROJECT_NAME} PRIVATE
+		${SDL2_LIB_DIR}/SDL2.lib
+		${SDL2_LIB_DIR}/SDL2main.lib
+	)
+else()
+	target_link_libraries(${PROJECT_NAME} PRIVATE	
+		${SDL2_LIBRARIES})
+endif()
+
