@@ -40,6 +40,9 @@ add_subdirectory(external/serial-cross-platform)
 # dartt-protocol (provides: dartt_protocol, dartt_checksum)
 add_subdirectory(external/dartt-protocol)
 
+# nlohmann/json (provides: nlohmann_json::nlohmann_json)
+add_subdirectory(external/json)
+
 # ============================================================================
 # Main Application
 # ============================================================================
@@ -55,4 +58,5 @@ target_link_libraries(dartt_dashboard PRIVATE
     serial
     dartt_protocol
     dartt_checksum
+    nlohmann_json::nlohmann_json
 )

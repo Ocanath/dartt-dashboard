@@ -23,6 +23,9 @@
 #include "dartt_sync.h"
 #include "checksum.h"
 
+// JSON
+#include <nlohmann/json.hpp>
+
 int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
