@@ -6,7 +6,7 @@
 #endif
 
 // SDL2
-// #include <SDL.h>
+#include <SDL.h>
 
 // OpenGL (optional - imgui backend handles this, but needed if you call GL directly)
 #include <GL/gl.h>

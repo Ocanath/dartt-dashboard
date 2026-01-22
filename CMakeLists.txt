@@ -87,8 +87,8 @@ target_link_libraries(dartt_dashboard PRIVATE
 
 if(WIN32)
 	target_link_libraries(${PROJECT_NAME} PRIVATE
-		${SDL2_LIB_DIR}/SDL2.lib
 		${SDL2_LIB_DIR}/SDL2main.lib
+		${SDL2_LIB_DIR}/SDL2.lib
 	)
 else()
 	target_link_libraries(${PROJECT_NAME} PRIVATE	
