@@ -35,8 +35,21 @@
 
 int main(int argc, char* argv[]) 
 {
-    (void)argc;
-    (void)argv;
+
+	//The window we'll be rendering to
+	SDL_Window* window = NULL;
+
+	SDL_Color bgColor = { 10, 10, 10, 255 };
+
+	//Initialize SDL
+	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+	{
+		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+	}
+	else
+	{
+		printf("sdl init success\n");
+	}
 	
 	int rc = serial.autoconnect(921600);//todo - add baudrate as an argument
 	if(rc != true)
