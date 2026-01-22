@@ -25,3 +25,9 @@ mkdir build && cd build
 cmake ..
 make
 ```
+
+## IMPORTANT NOTE FOR WINDOWS:
+
+You MUST copy the SDL2.dll to the same directory as the compiled executable. It will otherwise fail silently (via cmd) or with an error (if launched via visual studio).
+
+Make sure to use the same target architecture - i.e. x86 or x64. The .dlls can be found in the SDL directory
