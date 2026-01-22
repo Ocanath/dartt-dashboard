@@ -48,6 +48,10 @@ int rx_blocking(buffer_t * buf, uint32_t timeout)
 		buf->len = rc;
 		cb_enc.length = buf->len;
 	}
+	else if (rc == -2)
+	{
+		return -7;
+	}
 	else
 	{
 		return -1;
@@ -70,29 +74,6 @@ int rx_blocking(buffer_t * buf, uint32_t timeout)
 	}
     
 }
-
-// dartt_sync_t ds = 
-// {
-// 	.address = 0,	//must be mapped
-// 	.ctl_base = {},	//must be assigned
-// 	.periph_base = {},	//must be assigned
-// 	.msg_type = TYPE_SERIAL_MESSAGE,
-// 	.tx_buf = 
-// 	{
-// 		.buf = tx_mem,
-// 		.size = sizeof(tx_mem) - 2,	//leave two bytes for cobs
-// 		.len = 0
-// 	},
-// 	.rx_buf = {
-// 		.buf = rx_dartt_mem,
-// 		.size = sizeof(rx_dartt_mem) - 2,	//leave two bytes for cobs
-// 		.len = 0
-// 	},
-// 	.blocking_tx_callback = &tx_blocking,
-// 	.blocking_rx_callback = &rx_blocking,
-// 	.timeout_ms = 10
-// };
-
 
 void init_ds(dartt_sync_t * ds)
 {

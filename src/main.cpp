@@ -37,9 +37,29 @@ int main(int argc, char* argv[])
 {
     (void)argc;
     (void)argv;
-	for(int i = 0; i < 10; i++)
+	
+	int rc = serial.autoconnect(921600);//todo - add baudrate as an argument
+	if(rc != true)
 	{
-		printf("Doing Something\n");
+		printf("Warning - no serial connection made\n");
 	}
+	
+	dartt_sync_t ds;
+	init_ds(&ds);	//basic
+	ds.address = 5;
+	int bufsize = 10;	//obtain from json
+	
+	//assign ctl buf and periph buf
+	ds.ctl_base.buf = (unsigned char *)calloc(1, bufsize);
+	ds.ctl_base.len = bufsize;
+	ds.ctl_base.size = bufsize;	//set up the ctl by default to read the whole thing
+	ds.periph_base.buf = (unsigned char *)calloc(1, bufsize);
+	ds.periph_base.len = bufsize;
+	ds.periph_base.size = bufsize;
+
+	rc = dartt_read_multi(&ds.ctl_base, &ds);
+	printf("Read: got %d\n", rc);
+
+	printf("Done\n");
     return 0;
 }
