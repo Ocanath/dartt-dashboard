@@ -8,31 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # External Dependencies
 # ============================================================================
 
-# SDL2 (system)
-# SDL2 Setup
-if(WIN32)
-    # Path to your local SDL2 copy
-    set(SDL2_DIR "${CMAKE_SOURCE_DIR}/external/SDL")
 
-    # Determine the target architecture
-    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        # 64-bit architecture
-        set(SDL2_LIB_DIR "${SDL2_DIR}/lib/x64")
-    else()
-        # 32-bit architecture
-        set(SDL2_LIB_DIR "${SDL2_DIR}/lib/x86")
-    endif()
-
-    # Include SDL2 headers
-    include_directories(${SDL2_DIR}/include)
-    
-    # Link SDL2 libraries
-else()
-    # Find SDL2 on other platforms
-    find_package(SDL2 REQUIRED)
-    include_directories(${SDL2_INCLUDE_DIRS})
-
-endif()
 
 # OpenGL
 find_package(OpenGL REQUIRED)
@@ -70,12 +46,12 @@ add_subdirectory(external/json)
 # Main Application
 # ============================================================================
 
-add_executable(dartt_dashboard
+add_executable(${PROJECT_NAME}
     src/main.cpp
 	src/dartt_init.cpp
 )
 
-target_link_libraries(dartt_dashboard PRIVATE
+target_link_libraries(${PROJECT_NAME} PRIVATE
     imgui
     cobs
     PPP
@@ -85,13 +61,37 @@ target_link_libraries(dartt_dashboard PRIVATE
     nlohmann_json::nlohmann_json
 )
 
+
+# SDL2 (system)
+# SDL2 Setup
 if(WIN32)
+    # Path to your local SDL2 copy
+    set(SDL2_DIR "${CMAKE_SOURCE_DIR}/external/SDL")
+
+    # Determine the target architecture
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        # 64-bit architecture
+        set(SDL2_LIB_DIR "${SDL2_DIR}/lib/x64")
+    else()
+        # 32-bit architecture
+        set(SDL2_LIB_DIR "${SDL2_DIR}/lib/x86")
+    endif()
+
+    # Include SDL2 headers
+    include_directories(${SDL2_DIR}/include)
+    
+    # Link SDL2 libraries
 	target_link_libraries(${PROJECT_NAME} PRIVATE
-		${SDL2_LIB_DIR}/SDL2main.lib
-		${SDL2_LIB_DIR}/SDL2.lib
-	)
+	${SDL2_LIB_DIR}/SDL2main.lib
+	${SDL2_LIB_DIR}/SDL2.lib
+)
+
 else()
+    # Find SDL2 on other platforms
+    find_package(SDL2 REQUIRED)
+    include_directories(${SDL2_INCLUDE_DIRS})
 	target_link_libraries(${PROJECT_NAME} PRIVATE	
 		${SDL2_LIBRARIES})
+
 endif()
 
