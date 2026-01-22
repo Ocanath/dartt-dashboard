@@ -33,6 +33,11 @@
 #include "config.h"
 #include "dartt_init.h"
 
+#include <fstream>
+
+using json = nlohmann::json;
+
+
 int main(int argc, char* argv[]) 
 {
 
@@ -72,6 +77,19 @@ int main(int argc, char* argv[])
 
 	rc = dartt_read_multi(&ds.ctl_base, &ds);
 	printf("Read: got %d\n", rc);
+
+
+
+	json j;
+	std::ifstream fhandle("config.json");
+	if(fhandle.is_open() == 0)
+	{
+		printf("No config found\n");
+		return -1;
+	}
+	j = json::parse(fhandle);
+	printf("%s\n", j.value("symbol",""));
+
 
 	printf("Done\n");
     return 0;

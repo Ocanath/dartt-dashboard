@@ -49,6 +49,7 @@ add_subdirectory(external/json)
 add_executable(${PROJECT_NAME}
     src/main.cpp
 	src/dartt_init.cpp
+	src/config.cpp
 )
 
 # SDL2 (system)
