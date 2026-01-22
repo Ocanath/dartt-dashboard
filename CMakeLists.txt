@@ -51,17 +51,6 @@ add_executable(${PROJECT_NAME}
 	src/dartt_init.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    imgui
-    cobs
-    PPP
-    serial
-    dartt_protocol
-    dartt_checksum
-    nlohmann_json::nlohmann_json
-)
-
-
 # SDL2 (system)
 # SDL2 Setup
 if(WIN32)
@@ -81,7 +70,7 @@ if(WIN32)
     include_directories(${SDL2_DIR}/include)
     
     # Link SDL2 libraries
-	target_link_libraries(${PROJECT_NAME} PRIVATE
+	target_link_libraries(${PROJECT_NAME}
 		${SDL2_LIB_DIR}/SDL2main.lib
 		${SDL2_LIB_DIR}/SDL2.lib
 	)
@@ -90,8 +79,17 @@ else()
     # Find SDL2 on other platforms
     find_package(SDL2 REQUIRED)
     include_directories(${SDL2_INCLUDE_DIRS})
-	target_link_libraries(${PROJECT_NAME} PRIVATE	
+	target_link_libraries(${PROJECT_NAME}	
 		${SDL2_LIBRARIES})
 
 endif()
 
+target_link_libraries(${PROJECT_NAME}
+    imgui
+    cobs
+    PPP
+    serial
+    dartt_protocol
+    dartt_checksum
+    nlohmann_json::nlohmann_json
+)
