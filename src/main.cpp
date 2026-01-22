@@ -31,6 +31,7 @@
 // JSON
 #include <nlohmann/json.hpp>
 #include "config.h"
+#include "dartt_init.h"
 
 int main(int argc, char* argv[]) 
 {

@@ -114,7 +114,21 @@ struct DarttConfig {
         return (ctl_buf != nullptr && periph_buf != nullptr);
     }
 
-	
+	dartt_sync_t sync;
+
+	int load_sync(unsigned char address)
+	{
+		sync.address = address;
+		sync.ctl_base.buf = ctl_buf;
+		sync.ctl_base.len = 0;
+		sync.ctl_base.size = nbytes;
+
+		sync.periph_base.buf = periph_buf;
+		sync.periph_base.len = 0;
+		sync.periph_base.size = nbytes;
+		
+		sync.msg_type = TYPE_SERIAL_MESSAGE;	//this program uses UART over COBS - so this is hardcoded
+	}
 };
 
 // Parse config from JSON file
