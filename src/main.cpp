@@ -8,7 +8,7 @@
 // SDL2
 #include <SDL.h>
 
-// OpenGL (optional - imgui backend handles this, but needed if you call GL directly)
+// OpenGL
 #include <GL/gl.h>
 
 // ImGui
@@ -28,69 +28,135 @@
 #include "dartt_sync.h"
 #include "checksum.h"
 
-// JSON
-#include <nlohmann/json.hpp>
+// App
 #include "config.h"
 #include "dartt_init.h"
+#include "ui.h"
 
-#include <fstream>
-
-using json = nlohmann::json;
-
-
-int main(int argc, char* argv[]) 
+int main(int argc, char* argv[])
 {
+	(void)argc;
+	(void)argv;
 
-	//The window we'll be rendering to
-	SDL_Window* window = NULL;
-
-	SDL_Color bgColor = { 10, 10, 10, 255 };
-
-	//Initialize SDL
-	if (SDL_Init(SDL_INIT_VIDEO) < 0)
-	{
+	// Initialize SDL
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-	}
-	else
-	{
-		printf("sdl init success\n");
-	}
-	
-	int rc = serial.autoconnect(921600);//todo - add baudrate as an argument
-	if(rc != true)
-	{
-		printf("Warning - no serial connection made\n");
-	}
-	
-	dartt_sync_t ds;
-	init_ds(&ds);	//basic
-	ds.address = 5;
-	int bufsize = 10;	//obtain from json
-	
-	//assign ctl buf and periph buf
-	ds.ctl_base.buf = (unsigned char *)calloc(1, bufsize);
-	ds.ctl_base.len = bufsize;
-	ds.ctl_base.size = bufsize;	//set up the ctl by default to read the whole thing
-	ds.periph_base.buf = (unsigned char *)calloc(1, bufsize);
-	ds.periph_base.len = bufsize;
-	ds.periph_base.size = bufsize;
-
-	rc = dartt_read_multi(&ds.ctl_base, &ds);
-	printf("Read: got %d\n", rc);
-
-
-
-	json j;
-	std::ifstream fhandle("config.json");
-	if(fhandle.is_open() == 0)
-	{
-		printf("No config found\n");
 		return -1;
 	}
-	j = json::parse(fhandle);
-	printf("%s\n", j.value("symbol",""));
 
+	// GL attributes
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-	printf("Done\n");
-    return 0;
+	// Create window
+	SDL_Window* window = SDL_CreateWindow(
+		"DARTT Dashboard",
+		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+		1280, 720,
+		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
+	);
+	if (!window) {
+		printf("Window creation failed: %s\n", SDL_GetError());
+		return -1;
+	}
+
+	// Create GL context
+	SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+	if (!gl_context) {
+		printf("GL context creation failed: %s\n", SDL_GetError());
+		return -1;
+	}
+	SDL_GL_MakeCurrent(window, gl_context);
+	SDL_GL_SetSwapInterval(1); // VSync
+
+	// Initialize ImGui
+	if (!init_imgui(window, gl_context)) {
+		printf("ImGui initialization failed\n");
+		return -1;
+	}
+
+	// Serial connection
+	int rc = serial.autoconnect(921600);
+	if (rc != true) {
+		printf("Warning - no serial connection made\n");
+	}
+
+	// Load config
+	DarttConfig config;
+	if (!load_dartt_config("config.json", config)) {
+		printf("Failed to load config.json\n");
+		// Continue anyway - UI will be empty
+	}
+
+	// Allocate DARTT buffers
+	if (config.nbytes > 0) {
+		config.allocate_buffers();
+	}
+
+	// Setup dartt_sync
+	dartt_sync_t ds;
+	init_ds(&ds);
+	ds.address = 0x05; // TODO: make configurable
+
+	if (config.ctl_buf && config.periph_buf) {
+		ds.ctl_base.buf = config.ctl_buf;
+		ds.ctl_base.len = config.nbytes;
+		ds.ctl_base.size = config.nbytes;
+		ds.periph_base.buf = config.periph_buf;
+		ds.periph_base.len = config.nbytes;
+		ds.periph_base.size = config.nbytes;
+	}
+
+	// Main loop
+	bool running = true;
+	while (running) {
+		// Poll events
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+			ImGui_ImplSDL2_ProcessEvent(&event);
+			if (event.type == SDL_QUIT) {
+				running = false;
+			}
+			if (event.type == SDL_WINDOWEVENT &&
+				event.window.event == SDL_WINDOWEVENT_CLOSE &&
+				event.window.windowID == SDL_GetWindowID(window)) {
+				running = false;
+			}
+		}
+
+		// Start ImGui frame
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
+
+		// Render UI
+		bool value_edited = render_live_expressions(config);
+
+		// TODO: If value edited, trigger dartt_write_multi
+		// TODO: Poll subscribed fields via dartt_read_multi
+
+		// Render
+		ImGui::Render();
+		int display_w, display_h;
+		SDL_GetWindowSize(window, &display_w, &display_h);
+		glViewport(0, 0, display_w, display_h);
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+		SDL_GL_SwapWindow(window);
+	}
+
+	// Cleanup
+	shutdown_imgui();
+	SDL_GL_DeleteContext(gl_context);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
+
+	return 0;
 }
