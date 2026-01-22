@@ -6,7 +6,7 @@
 #endif
 
 // SDL2
-#include <SDL.h>
+// #include <SDL.h>
 
 // OpenGL (optional - imgui backend handles this, but needed if you call GL directly)
 #include <GL/gl.h>
@@ -37,6 +37,9 @@ int main(int argc, char* argv[])
 {
     (void)argc;
     (void)argv;
-    printf("dartt-dashboard\n");
+	for(int i = 0; i < 10; i++)
+	{
+		printf("Doing Something\n");
+	}
     return 0;
 }

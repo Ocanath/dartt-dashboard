@@ -71,25 +71,42 @@ int rx_blocking(buffer_t * buf, uint32_t timeout)
     
 }
 
-dartt_sync_t ds = 
-{
-	.address = 0,	//must be mapped
-	.ctl_base = {},	//must be assigned
-	.periph_base = {},	//must be assigned
-	.msg_type = TYPE_SERIAL_MESSAGE,
-	.tx_buf = 
-	{
-		.buf = tx_mem,
-		.size = sizeof(tx_mem) - 2,	//leave two bytes for cobs
-		.len = 0
-	},
-	.rx_buf = {
-		.buf = rx_dartt_mem,
-		.size = sizeof(rx_dartt_mem) - 2,	//leave two bytes for cobs
-		.len = 0
-	},
-	.blocking_tx_callback = &tx_blocking,
-	.blocking_rx_callback = &rx_blocking,
-	.timeout_ms = 10
-};
+// dartt_sync_t ds = 
+// {
+// 	.address = 0,	//must be mapped
+// 	.ctl_base = {},	//must be assigned
+// 	.periph_base = {},	//must be assigned
+// 	.msg_type = TYPE_SERIAL_MESSAGE,
+// 	.tx_buf = 
+// 	{
+// 		.buf = tx_mem,
+// 		.size = sizeof(tx_mem) - 2,	//leave two bytes for cobs
+// 		.len = 0
+// 	},
+// 	.rx_buf = {
+// 		.buf = rx_dartt_mem,
+// 		.size = sizeof(rx_dartt_mem) - 2,	//leave two bytes for cobs
+// 		.len = 0
+// 	},
+// 	.blocking_tx_callback = &tx_blocking,
+// 	.blocking_rx_callback = &rx_blocking,
+// 	.timeout_ms = 10
+// };
 
+
+void init_ds(dartt_sync_t * ds)
+{
+	ds->address = 0;	//must be mapped
+	ds->ctl_base = {};	//must be assigned
+	ds->periph_base = {};	//must be assigned
+	ds->msg_type = TYPE_SERIAL_MESSAGE;
+	ds->tx_buf.buf = tx_mem;
+	ds->tx_buf.size = sizeof(tx_mem) - 2;	//leave two bytes for cobs
+	ds->tx_buf.len = 0;
+	ds->rx_buf.buf = rx_dartt_mem;
+	ds->rx_buf.size = sizeof(rx_dartt_mem) - 2;	//leave two bytes for cobs
+	ds->rx_buf.len = 0;
+	ds->blocking_tx_callback = &tx_blocking;
+	ds->blocking_rx_callback = &rx_blocking;
+	ds->timeout_ms = 10;
+}
