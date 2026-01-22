@@ -82,9 +82,9 @@ if(WIN32)
     
     # Link SDL2 libraries
 	target_link_libraries(${PROJECT_NAME} PRIVATE
-	${SDL2_LIB_DIR}/SDL2main.lib
-	${SDL2_LIB_DIR}/SDL2.lib
-)
+		${SDL2_LIB_DIR}/SDL2main.lib
+		${SDL2_LIB_DIR}/SDL2.lib
+	)
 
 else()
     # Find SDL2 on other platforms
