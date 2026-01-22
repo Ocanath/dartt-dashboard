@@ -215,11 +215,9 @@ bool render_live_expressions(DarttConfig& config) {
         ImGui::TableSetupColumn("Sub", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableHeadersRow();
 
-        // Render all top-level fields
-        for (auto& field : config.root.children) {
-            if (render_field_row(field, 0)) {
-                any_edited = true;
-            }
+        // Render the root node (e.g., "gl_dp") as the top-level entry
+        if (render_field_row(config.root, 0)) {
+            any_edited = true;
         }
 
         ImGui::EndTable();
