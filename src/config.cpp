@@ -6,18 +6,20 @@
 using json = nlohmann::json;
 
 // Helper: get FieldType from type string
+//TODO: consider falling back to uint32_t if the type is unknown and the size is equal to four. 
+//TODO: cross reference type with nbytes to confirm that the label matches the expected size.
 FieldType parse_field_type(const std::string& type_str) {
     // Check for common type names
     if (type_str == "float") return FieldType::FLOAT;
     if (type_str == "double") return FieldType::DOUBLE;
     if (type_str == "int8_t" || type_str == "signed char") return FieldType::INT8;
     if (type_str == "uint8_t" || type_str == "unsigned char") return FieldType::UINT8;
-    if (type_str == "int16_t" || type_str == "short") return FieldType::INT16;
-    if (type_str == "uint16_t" || type_str == "unsigned short") return FieldType::UINT16;
-    if (type_str == "int32_t" || type_str == "int" || type_str == "long") return FieldType::INT32;
-    if (type_str == "uint32_t" || type_str == "unsigned int" || type_str == "unsigned long") return FieldType::UINT32;
-    if (type_str == "int64_t" || type_str == "long long") return FieldType::INT64;
-    if (type_str == "uint64_t" || type_str == "unsigned long long") return FieldType::UINT64;
+    if (type_str == "int16_t" || type_str == "short" || type_str == "short int") return FieldType::INT16;
+    if (type_str == "uint16_t" || type_str == "unsigned short" || type_str == "unsigned short int") return FieldType::UINT16;
+    if (type_str == "int32_t" || type_str == "int" || type_str == "long" || type_str == "long int") return FieldType::INT32;
+    if (type_str == "uint32_t" || type_str == "unsigned int" || type_str == "unsigned long" || type_str == "unsigned long int") return FieldType::UINT32;
+    if (type_str == "int64_t" || type_str == "long long" || type_str == "long long int") return FieldType::INT64;
+    if (type_str == "uint64_t" || type_str == "unsigned long long" || type_str == "unsigned long long int") return FieldType::UINT64;
     if (type_str == "struct") return FieldType::STRUCT;
     if (type_str == "union") return FieldType::UNION;
     if (type_str == "array") return FieldType::ARRAY;

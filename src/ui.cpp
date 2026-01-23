@@ -98,9 +98,9 @@ static bool render_field_row(DarttField& field, int depth) {
         // Editable value box
         ImGui::SetNextItemWidth(-FLT_MIN); // Fill column width
 
-        char buf[64];
-        std::string val_str = format_field_value(field);
-        snprintf(buf, sizeof(buf), "%s", val_str.c_str());
+        // char buf[64];
+        // std::string val_str = format_field_value(field);
+        // snprintf(buf, sizeof(buf), "%s", val_str.c_str());
 
         // Different input types based on field type
         // Use IsItemDeactivatedAfterEdit() to detect when editing is complete

@@ -103,7 +103,8 @@ int main(int argc, char* argv[])
 	init_ds(&ds);
 	ds.address = 0x05; // TODO: make configurable
 
-	if (config.ctl_buf && config.periph_buf) {
+	if (config.ctl_buf && config.periph_buf) 
+	{
 		ds.ctl_base.buf = config.ctl_buf;
 		ds.ctl_base.len = config.nbytes;
 		ds.ctl_base.size = config.nbytes;
@@ -117,14 +118,17 @@ int main(int argc, char* argv[])
 	while (running) {
 		// Poll events
 		SDL_Event event;
-		while (SDL_PollEvent(&event)) {
+		while (SDL_PollEvent(&event)) 
+		{
 			ImGui_ImplSDL2_ProcessEvent(&event);
-			if (event.type == SDL_QUIT) {
+			if (event.type == SDL_QUIT) 
+			{
 				running = false;
 			}
 			if (event.type == SDL_WINDOWEVENT &&
 				event.window.event == SDL_WINDOWEVENT_CLOSE &&
-				event.window.windowID == SDL_GetWindowID(window)) {
+				event.window.windowID == SDL_GetWindowID(window)) 
+			{
 				running = false;
 			}
 		}

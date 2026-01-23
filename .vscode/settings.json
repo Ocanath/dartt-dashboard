@@ -1,0 +1,13 @@
+{
+  "cmake.configureOnOpen": true,
+  "cmake.preferredGenerators": ["Ninja", "Visual Studio 17 2022"],
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.defaultVariants": {
+    "buildType": {
+      "default": "debug",
+      "choices": {
+        "debug": { "short": "Debug", "long": "Debug", "buildType": "Debug" }
+      }
+    }
+  }
+}
