@@ -107,37 +107,37 @@ static bool render_field_row(DarttField& field, int depth) {
         switch (field.type) {
             case FieldType::FLOAT:
                 ImGui::InputFloat("##val", &field.value.f32, 0, 0, "%.6f");
-                if (ImGui::IsItemDeactivatedAfterEdit()) value_edited = true;
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
                 break;
             case FieldType::INT32:
             case FieldType::ENUM:
                 ImGui::InputInt("##val", &field.value.i32, 0, 0);
-                if (ImGui::IsItemDeactivatedAfterEdit()) value_edited = true;
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
                 break;
             case FieldType::UINT32:
             case FieldType::POINTER:
                 ImGui::InputScalar("##val", ImGuiDataType_U32, &field.value.u32, NULL, NULL, "%u");
-                if (ImGui::IsItemDeactivatedAfterEdit()) value_edited = true;
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
                 break;
             case FieldType::INT16:
                 ImGui::InputScalar("##val", ImGuiDataType_S16, &field.value.i16, NULL, NULL, "%d");
-                if (ImGui::IsItemDeactivatedAfterEdit()) value_edited = true;
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
                 break;
             case FieldType::UINT16:
                 ImGui::InputScalar("##val", ImGuiDataType_U16, &field.value.u16, NULL, NULL, "%u");
-                if (ImGui::IsItemDeactivatedAfterEdit()) value_edited = true;
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
                 break;
             case FieldType::INT8:
                 ImGui::InputScalar("##val", ImGuiDataType_S8, &field.value.i8, NULL, NULL, "%d");
-                if (ImGui::IsItemDeactivatedAfterEdit()) value_edited = true;
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
                 break;
             case FieldType::UINT8:
                 ImGui::InputScalar("##val", ImGuiDataType_U8, &field.value.u8, NULL, NULL, "%u");
-                if (ImGui::IsItemDeactivatedAfterEdit()) value_edited = true;
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
                 break;
             case FieldType::DOUBLE:
                 ImGui::InputDouble("##val", &field.value.f64, 0, 0, "%.6f");
-                if (ImGui::IsItemDeactivatedAfterEdit()) value_edited = true;
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
                 break;
             default:
                 ImGui::TextDisabled("???");

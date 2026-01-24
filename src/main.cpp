@@ -32,6 +32,7 @@
 #include "config.h"
 #include "dartt_init.h"
 #include "ui.h"
+#include "buffer_sync.h"
 
 int main(int argc, char* argv[])
 {
@@ -140,9 +141,41 @@ int main(int argc, char* argv[])
 
 		// Render UI
 		bool value_edited = render_live_expressions(config);
+		(void)value_edited; // Used for debugging if needed
 
-		// TODO: If value edited, trigger dartt_write_multi
-		// TODO: Poll subscribed fields via dartt_read_multi
+		// WRITE: Send dirty fields to device
+		if (config.ctl_buf && config.periph_buf) {
+			auto write_queue = build_write_queue(config);
+			for (auto& region : write_queue) {
+				sync_fields_to_ctl_buf(config, region);
+
+				buffer_t slice = {
+					.buf = config.ctl_buf + region.start_offset,
+					.size = region.length,
+					.len = region.length
+				};
+
+				if (dartt_write_multi(&slice, &ds) == DARTT_PROTOCOL_SUCCESS) {
+					clear_dirty_flags(region);
+				}
+			}
+		}
+
+		// READ: Poll subscribed fields from device
+		if (config.ctl_buf && config.periph_buf) {
+			auto read_queue = build_read_queue(config);
+			for (auto& region : read_queue) {
+				buffer_t slice = {
+					.buf = config.periph_buf + region.start_offset,
+					.size = region.length,
+					.len = region.length
+				};
+
+				if (dartt_read_multi(&slice, &ds) == DARTT_PROTOCOL_SUCCESS) {
+					sync_periph_buf_to_fields(config, region);
+				}
+			}
+		}
 
 		// Render
 		ImGui::Render();

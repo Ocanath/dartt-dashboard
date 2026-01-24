@@ -51,6 +51,7 @@ add_executable(${PROJECT_NAME}
 	src/dartt_init.cpp
 	src/config.cpp
 	src/ui.cpp
+	src/buffer_sync.cpp
 )
 
 # SDL2 (system)

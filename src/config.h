@@ -45,6 +45,7 @@ struct DarttField {
 
     // UI state
     bool subscribed;
+    bool dirty;                 // set when value edited, cleared after write
     float display_scale;
     bool expanded;              // tree node expanded in UI
 
@@ -71,6 +72,7 @@ struct DarttField {
         , array_size(0)
         , element_nbytes(0)
         , subscribed(false)
+        , dirty(false)
         , display_scale(1.0f)
         , expanded(false)
     {
