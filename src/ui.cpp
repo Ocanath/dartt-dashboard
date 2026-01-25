@@ -139,6 +139,14 @@ static bool render_field_row(DarttField& field, int depth) {
                 ImGui::InputDouble("##val", &field.value.f64, 0, 0, "%.6f");
                 if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
                 break;
+            case FieldType::INT64:
+                ImGui::InputScalar("##val", ImGuiDataType_S64, &field.value.i64, NULL, NULL, "%lld");
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
+                break;
+            case FieldType::UINT64:
+                ImGui::InputScalar("##val", ImGuiDataType_U64, &field.value.u64, NULL, NULL, "%llu");
+                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field.dirty = true; }
+                break;
             default:
                 ImGui::TextDisabled("???");
                 break;
