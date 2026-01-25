@@ -155,8 +155,12 @@ int main(int argc, char* argv[])
 					.len = region.length
 				};
 
-				if (dartt_write_multi(&slice, &ds) == DARTT_PROTOCOL_SUCCESS) {
+				int rc = dartt_write_multi(&slice, &ds);
+				if (rc == DARTT_PROTOCOL_SUCCESS) {
 					clear_dirty_flags(region);
+					printf("write ok: offset=%u len=%u\n", region.start_offset, region.length);
+				} else {
+					printf("write error %d\n", rc);
 				}
 			}
 		}
@@ -171,8 +175,11 @@ int main(int argc, char* argv[])
 					.len = region.length
 				};
 
-				if (dartt_read_multi(&slice, &ds) == DARTT_PROTOCOL_SUCCESS) {
+				int rc = dartt_read_multi(&slice, &ds);
+				if (rc == DARTT_PROTOCOL_SUCCESS) {
 					sync_periph_buf_to_fields(config, region);
+				} else {
+					printf("read error %d\n", rc);
 				}
 			}
 		}
