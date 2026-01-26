@@ -2,9 +2,12 @@
 
 
 Serial serial;
-unsigned char tx_mem[64] = {};
-unsigned char rx_dartt_mem[64] = {};
-unsigned char rx_cobs_mem[64] = {};
+
+ #define NUM_BYTES_COBS_OVERHEAD	2	//we have to tell dartt our serial buffers are smaller than they are, so the COBS layer has room to operate. This allows for functional multiple message handling with write_multi and read_multi for large configs
+
+unsigned char tx_mem[SERIAL_BUFFER_SIZE] = {};
+unsigned char rx_dartt_mem[SERIAL_BUFFER_SIZE] = {};
+unsigned char rx_cobs_mem[SERIAL_BUFFER_SIZE] = {};
 
 
 int tx_blocking(unsigned char addr, buffer_t * b, uint32_t timeout)
@@ -83,10 +86,10 @@ void init_ds(dartt_sync_t * ds)
 	ds->periph_base = {};	//must be assigned
 	ds->msg_type = TYPE_SERIAL_MESSAGE;
 	ds->tx_buf.buf = tx_mem;
-	ds->tx_buf.size = sizeof(tx_mem);	
+	ds->tx_buf.size = sizeof(tx_mem) - NUM_BYTES_COBS_OVERHEAD;		//DO NOT CHANGE. This is for a good reason. See above note
 	ds->tx_buf.len = 0;
 	ds->rx_buf.buf = rx_dartt_mem;
-	ds->rx_buf.size = sizeof(rx_dartt_mem);	//todo: size this buffer based on the size of the attribute. take size argument and malloc.
+	ds->rx_buf.size = sizeof(rx_dartt_mem) - NUM_BYTES_COBS_OVERHEAD;	//DO NOT CHANGE. This is for a good reason. See above note
 	ds->rx_buf.len = 0;
 	ds->blocking_tx_callback = &tx_blocking;
 	ds->blocking_rx_callback = &rx_blocking;
