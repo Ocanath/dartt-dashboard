@@ -2,15 +2,31 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "CMake: Debug active target (MSVC)",
-      "type": "cppvsdbg",
+      "name": "Debug dartt_dashboard",
+      "type": "cppdbg",
       "request": "launch",
-      "program": "${command:cmake.launchTargetPath}",
+      "program": "${workspaceFolder}/build/dartt_dashboard",
       "args": [],
-      "cwd": "${command:cmake.launchTargetDirectory}",
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/build",
       "environment": [],
-      "console": "integratedTerminal",
-      "stopAtEntry": false
+      "externalConsole": false,
+      "linux": {
+        "MIMode": "gdb",
+        "setupCommands": [
+          {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+          }
+        ]
+      },
+      "windows": {
+        "type": "cppvsdbg",
+        "program": "${workspaceFolder}/build/Debug/dartt_dashboard.exe",
+        "cwd": "${workspaceFolder}/build/Debug"
+      },
+      "preLaunchTask": "CMake: build"
     }
   ]
 }
