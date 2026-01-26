@@ -45,8 +45,7 @@ int rx_blocking(buffer_t * buf, uint32_t timeout)
 
 	if (rc >= 0)
 	{
-		buf->len = rc;
-		cb_enc.length = buf->len;
+		cb_enc.length = rc;	//load encoded length (raw buffer)
 	}
 	else if (rc == -2)
 	{
@@ -64,6 +63,8 @@ int rx_blocking(buffer_t * buf, uint32_t timeout)
 		.length = 0
 	};
 	rc = cobs_decode_double_buffer(&cb_enc, &cb_dec);
+	buf->len = cb_dec.length;	//critical - we are aliasing this read buffer in sync, but must update the length to the cobs decoded value
+
 	if (rc != COBS_SUCCESS)
 	{
 		return rc;
@@ -82,10 +83,10 @@ void init_ds(dartt_sync_t * ds)
 	ds->periph_base = {};	//must be assigned
 	ds->msg_type = TYPE_SERIAL_MESSAGE;
 	ds->tx_buf.buf = tx_mem;
-	ds->tx_buf.size = sizeof(tx_mem) - 2;	//leave two bytes for cobs
+	ds->tx_buf.size = sizeof(tx_mem);	
 	ds->tx_buf.len = 0;
 	ds->rx_buf.buf = rx_dartt_mem;
-	ds->rx_buf.size = sizeof(rx_dartt_mem) - 2;	//leave two bytes for cobs
+	ds->rx_buf.size = sizeof(rx_dartt_mem);	//todo: size this buffer based on the size of the attribute. take size argument and malloc.
 	ds->rx_buf.len = 0;
 	ds->blocking_tx_callback = &tx_blocking;
 	ds->blocking_rx_callback = &rx_blocking;
