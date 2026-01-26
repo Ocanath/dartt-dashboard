@@ -166,19 +166,23 @@ int main(int argc, char* argv[])
 		}
 
 		// READ: Poll subscribed fields from device
-		if (config.ctl_buf && config.periph_buf) {
+		if (config.ctl_buf && config.periph_buf) 
+		{
 			auto read_queue = build_read_queue(config);
 			for (auto& region : read_queue) {
 				buffer_t slice = {
-					.buf = config.periph_buf + region.start_offset,
+					.buf = config.ctl_buf + region.start_offset,
 					.size = region.length,
 					.len = region.length
 				};
 
 				int rc = dartt_read_multi(&slice, &ds);
-				if (rc == DARTT_PROTOCOL_SUCCESS) {
+				if (rc == DARTT_PROTOCOL_SUCCESS) 
+				{
 					sync_periph_buf_to_fields(config, region);
-				} else {
+				} 
+				else 
+				{
 					printf("read error %d\n", rc);
 				}
 			}

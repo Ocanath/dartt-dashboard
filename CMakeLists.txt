@@ -54,6 +54,12 @@ add_executable(${PROJECT_NAME}
 	src/buffer_sync.cpp
 )
 
+# Debug symbols
+target_compile_options(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Debug>:-g -O0>
+    $<$<CONFIG:Release>:-O2>
+)
+
 # SDL2 (system)
 # SDL2 Setup
 if(WIN32)
