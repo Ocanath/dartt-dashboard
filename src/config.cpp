@@ -2,8 +2,22 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <cstdio>
+#include <vector>
 
 using json = nlohmann::json;
+
+// Work item for iterative JSON parsing
+struct ParseWork {
+    const json* j;
+    DarttField* field;
+    bool is_type_info;  // true = parse as type_info, false = parse as field
+};
+
+// Work item for iterative UI injection
+struct InjectWork {
+    json* j;
+    const DarttField* field;
+};
 
 // Helper: get FieldType from type string
 //TODO: consider falling back to uint32_t if the type is unknown and the size is equal to four. 
@@ -104,80 +118,82 @@ std::string format_field_value(const DarttField& field) {
     return std::string(buf);
 }
 
-// Forward declaration for recursive parsing
-static void parse_field(const json& j, DarttField& field);
+// Parse fields from JSON iteratively using explicit stack
+static void parse_fields_iterative(const json& root_type_info, DarttField& root_field) {
+    std::vector<ParseWork> stack;
+    stack.push_back({&root_type_info, &root_field, true});
 
-// Parse type_info object and populate field
-static void parse_type_info(const json& type_info, DarttField& field) {
-    if (!type_info.is_object()) return;
+    while (!stack.empty()) {
+        ParseWork work = stack.back();
+        stack.pop_back();
 
-    std::string type_str = type_info.value("type", "unknown");
-    field.type = parse_field_type(type_str);
+        const json& j = *work.j;
+        DarttField& field = *work.field;
 
-    // Get size from type_info
-    field.nbytes = type_info.value("size", 0u);
+        if (work.is_type_info) {
+            // Parse as type_info
+            if (!j.is_object()) continue;
 
-    // Store the type name (use typedef if present, otherwise type)
-    if (type_info.contains("typedef")) {
-        field.type_name = type_info["typedef"].get<std::string>();
-    } else {
-        field.type_name = type_str;
-    }
+            std::string type_str = j.value("type", "unknown");
+            field.type = parse_field_type(type_str);
+            field.nbytes = j.value("size", 0u);
 
-    // Handle struct/union - parse child fields
-    if (type_str == "struct" || type_str == "union") {
-        if (type_info.contains("fields") && type_info["fields"].is_array()) {
-            for (const auto& child_json : type_info["fields"]) {
-                DarttField child;
-                parse_field(child_json, child);
-                field.children.push_back(child);
-            }
-        }
-    }
-    // Handle array
-    else if (type_str == "array") {
-        field.array_size = type_info.value("total_elements", 0u);
-        if (type_info.contains("element_type")) {
-            const auto& elem = type_info["element_type"];
-            field.element_nbytes = elem.value("size", 0u);
-
-            // If array of structs, parse element type's fields
-            std::string elem_type = elem.value("type", "");
-            if (elem_type == "struct" || elem_type == "union") {
-                // Store element structure in a child
-                DarttField elem_field;
-                parse_type_info(elem, elem_field);
-                field.children.push_back(elem_field);
+            if (j.contains("typedef")) {
+                field.type_name = j["typedef"].get<std::string>();
             } else {
-                // Primitive array - store element type info
-                field.type_name = elem.value("typedef", elem.value("type", "unknown"));
+                field.type_name = type_str;
+            }
+
+            // Handle struct/union - queue child fields
+            if (type_str == "struct" || type_str == "union") {
+                if (j.contains("fields") && j["fields"].is_array()) {
+                    const auto& fields_array = j["fields"];
+                    // Pre-allocate children
+                    field.children.resize(fields_array.size());
+                    // Push in reverse order so first child is processed first
+                    for (size_t i = fields_array.size(); i > 0; i--) {
+                        stack.push_back({&fields_array[i-1], &field.children[i-1], false});
+                    }
+                }
+            }
+            // Handle array
+            else if (type_str == "array") {
+                field.array_size = j.value("total_elements", 0u);
+                if (j.contains("element_type")) {
+                    const auto& elem = j["element_type"];
+                    field.element_nbytes = elem.value("size", 0u);
+
+                    std::string elem_type = elem.value("type", "");
+                    if (elem_type == "struct" || elem_type == "union") {
+                        // Array of structs - queue element type parsing
+                        field.children.resize(1);
+                        stack.push_back({&elem, &field.children[0], true});
+                    } else {
+                        // Primitive array
+                        field.type_name = elem.value("typedef", elem.value("type", "unknown"));
+                    }
+                }
+            }
+        } else {
+            // Parse as field (has name, byte_offset, type_info)
+            field.name = j.value("name", "");
+            field.byte_offset = j.value("byte_offset", 0u);
+            field.dartt_offset = j.value("dartt_offset", 0u);
+
+            // Parse UI settings if present
+            if (j.contains("ui")) {
+                const auto& ui = j["ui"];
+                field.subscribed = ui.value("subscribed", false);
+                field.expanded = ui.value("expanded", false);
+                field.display_scale = ui.value("display_scale", 1.0f);
+            }
+
+            // Queue type_info parsing
+            if (j.contains("type_info")) {
+                stack.push_back({&j["type_info"], &field, true});
             }
         }
     }
-}
-
-// Parse a single field from JSON
-static void parse_field(const json& j, DarttField& field) {
-    field.name = j.value("name", "");
-    field.byte_offset = j.value("byte_offset", 0u);
-    field.dartt_offset = j.value("dartt_offset", 0u);
-
-    // Parse type_info if present
-    if (j.contains("type_info")) {
-        parse_type_info(j["type_info"], field);
-    }
-
-    // Parse UI settings if present
-    if (j.contains("ui")) {
-        const auto& ui = j["ui"];
-        field.subscribed = ui.value("subscribed", false);
-        field.expanded = ui.value("expanded", false);
-        field.display_scale = ui.value("display_scale", 1.0f);
-    }
-	else
-	{
-		printf("No UI settings present - continuing\n");
-	}
 }
 
 // Main config loader
@@ -207,7 +223,7 @@ bool load_dartt_config(const char* json_path, DarttConfig& config) {
     // Parse the root type structure
     if (j.contains("type")) {
         config.root.name = config.symbol;
-        parse_type_info(j["type"], config.root);
+        parse_fields_iterative(j["type"], config.root);
     }
 
     printf("Loaded config: symbol=%s, address=0x%08X, nbytes=%u, nwords=%u\n",
@@ -216,20 +232,35 @@ bool load_dartt_config(const char* json_path, DarttConfig& config) {
     return true;
 }
 
-// Inject UI settings into a JSON field object, recursing into children
-static void inject_ui_settings(json& j, const DarttField& field) {
-    // Add/update ui object for this field
-    json ui;
-    ui["subscribed"] = field.subscribed;
-    ui["expanded"] = field.expanded;
-    ui["display_scale"] = field.display_scale;
-    j["ui"] = ui;
+// Inject UI settings iteratively using explicit stack
+static void inject_ui_settings_iterative(json& root_json, const std::vector<DarttField>& root_fields) {
+    std::vector<InjectWork> stack;
 
-    // Recurse into type_info.fields if present (structs/unions)
-    if (j.contains("type_info") && j["type_info"].contains("fields")) {
-        auto& json_fields = j["type_info"]["fields"];
-        for (size_t i = 0; i < json_fields.size() && i < field.children.size(); i++) {
-            inject_ui_settings(json_fields[i], field.children[i]);
+    // Initialize stack with root fields
+    for (size_t i = 0; i < root_json.size() && i < root_fields.size(); i++) {
+        stack.push_back({&root_json[i], &root_fields[i]});
+    }
+
+    while (!stack.empty()) {
+        InjectWork work = stack.back();
+        stack.pop_back();
+
+        json& j = *work.j;
+        const DarttField& field = *work.field;
+
+        // Add/update ui object for this field
+        json ui;
+        ui["subscribed"] = field.subscribed;
+        ui["expanded"] = field.expanded;
+        ui["display_scale"] = field.display_scale;
+        j["ui"] = ui;
+
+        // Queue children if present (structs/unions)
+        if (j.contains("type_info") && j["type_info"].contains("fields")) {
+            auto& json_fields = j["type_info"]["fields"];
+            for (size_t i = 0; i < json_fields.size() && i < field.children.size(); i++) {
+                stack.push_back({&json_fields[i], &field.children[i]});
+            }
         }
     }
 }
@@ -254,10 +285,7 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config) {
 
     // Inject UI settings into type.fields
     if (j.contains("type") && j["type"].contains("fields")) {
-        auto& json_fields = j["type"]["fields"];
-        for (size_t i = 0; i < json_fields.size() && i < config.root.children.size(); i++) {
-            inject_ui_settings(json_fields[i], config.root.children[i]);
-        }
+        inject_ui_settings_iterative(j["type"]["fields"], config.root.children);
     }
 
     // Write back

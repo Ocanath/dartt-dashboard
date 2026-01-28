@@ -1,22 +1,46 @@
 #include "buffer_sync.h"
 #include <algorithm>
 #include <cstring>
+#include <vector>
 
-// Helper: collect all leaf fields matching a predicate
-static void collect_leaf_fields(
-    DarttField& field,
-    std::vector<DarttField*>& out,
-    bool (*predicate)(const DarttField&)
-) {
-    if (field.children.empty()) {
-        // Leaf node
-        if (predicate(field)) {
-            out.push_back(&field);
+// Collect all dirty leaf fields
+static void collect_dirty_fields(DarttField& root, std::vector<DarttField*>& out) {
+    std::vector<DarttField*> stack;
+    stack.push_back(&root);
+
+    while (!stack.empty()) {
+        DarttField* field = stack.back();
+        stack.pop_back();
+
+        if (field->children.empty()) {
+            if (field->dirty) {
+                out.push_back(field);
+            }
+        } else {
+            for (size_t i = field->children.size(); i > 0; i--) {
+                stack.push_back(&field->children[i - 1]);
+            }
         }
-    } else {
-        // Recurse into children
-        for (auto& child : field.children) {
-            collect_leaf_fields(child, out, predicate);
+    }
+}
+
+// Collect all subscribed leaf fields
+static void collect_subscribed_fields(DarttField& root, std::vector<DarttField*>& out) {
+    std::vector<DarttField*> stack;
+    stack.push_back(&root);
+
+    while (!stack.empty()) {
+        DarttField* field = stack.back();
+        stack.pop_back();
+
+        if (field->children.empty()) {
+            if (field->subscribed) {
+                out.push_back(field);
+            }
+        } else {
+            for (size_t i = field->children.size(); i > 0; i--) {
+                stack.push_back(&field->children[i - 1]);
+            }
         }
     }
 }
@@ -83,21 +107,13 @@ static std::vector<MemoryRegion> coalesce_fields(std::vector<DarttField*>& field
 
 std::vector<MemoryRegion> build_write_queue(DarttConfig& config) {
     std::vector<DarttField*> dirty_fields;
-
-    collect_leaf_fields(config.root, dirty_fields, [](const DarttField& f) {
-        return f.dirty;
-    });
-
+    collect_dirty_fields(config.root, dirty_fields);
     return coalesce_fields(dirty_fields);
 }
 
 std::vector<MemoryRegion> build_read_queue(DarttConfig& config) {
     std::vector<DarttField*> subscribed_fields;
-
-    collect_leaf_fields(config.root, subscribed_fields, [](const DarttField& f) {
-        return f.subscribed;
-    });
-
+    collect_subscribed_fields(config.root, subscribed_fields);
     return coalesce_fields(subscribed_fields);
 }
 
