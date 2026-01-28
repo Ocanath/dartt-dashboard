@@ -200,6 +200,9 @@ int main(int argc, char* argv[])
 		SDL_GL_SwapWindow(window);
 	}
 
+	// Save UI settings back to config
+	// save_dartt_config("config.json", config);
+
 	// Cleanup
 	shutdown_imgui();
 	SDL_GL_DeleteContext(gl_context);

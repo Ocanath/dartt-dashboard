@@ -121,6 +121,10 @@ struct DarttConfig {
 // Returns true on success, false on error (error message printed to stderr)
 bool load_dartt_config(const char* json_path, DarttConfig& config);
 
+// Save config to JSON file (preserves UI settings)
+// Returns true on success, false on error (error message printed to stderr)
+bool save_dartt_config(const char* json_path, const DarttConfig& config);
+
 // Helper: get FieldType from type string
 FieldType parse_field_type(const std::string& type_str);
 

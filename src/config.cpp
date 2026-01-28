@@ -166,6 +166,18 @@ static void parse_field(const json& j, DarttField& field) {
     if (j.contains("type_info")) {
         parse_type_info(j["type_info"], field);
     }
+
+    // Parse UI settings if present
+    if (j.contains("ui")) {
+        const auto& ui = j["ui"];
+        field.subscribed = ui.value("subscribed", false);
+        field.expanded = ui.value("expanded", false);
+        field.display_scale = ui.value("display_scale", 1.0f);
+    }
+	else
+	{
+		printf("No UI settings present - continuing\n");
+	}
 }
 
 // Main config loader
@@ -201,5 +213,63 @@ bool load_dartt_config(const char* json_path, DarttConfig& config) {
     printf("Loaded config: symbol=%s, address=0x%08X, nbytes=%u, nwords=%u\n",
            config.symbol.c_str(), config.address, config.nbytes, config.nwords);
 
+    return true;
+}
+
+// Inject UI settings into a JSON field object, recursing into children
+static void inject_ui_settings(json& j, const DarttField& field) {
+    // Add/update ui object for this field
+    json ui;
+    ui["subscribed"] = field.subscribed;
+    ui["expanded"] = field.expanded;
+    ui["display_scale"] = field.display_scale;
+    j["ui"] = ui;
+
+    // Recurse into type_info.fields if present (structs/unions)
+    if (j.contains("type_info") && j["type_info"].contains("fields")) {
+        auto& json_fields = j["type_info"]["fields"];
+        for (size_t i = 0; i < json_fields.size() && i < field.children.size(); i++) {
+            inject_ui_settings(json_fields[i], field.children[i]);
+        }
+    }
+}
+
+// Save config to JSON file (only adds ui objects, preserves everything else)
+bool save_dartt_config(const char* json_path, const DarttConfig& config) {
+    // Read original JSON
+    std::ifstream f_in(json_path);
+    if (!f_in.is_open()) {
+        fprintf(stderr, "Error: Could not open config file for reading: %s\n", json_path);
+        return false;
+    }
+
+    json j;
+    try {
+        j = json::parse(f_in);
+    } catch (const json::parse_error& e) {
+        fprintf(stderr, "Error: JSON parse error: %s\n", e.what());
+        return false;
+    }
+    f_in.close();
+
+    // Inject UI settings into type.fields
+    if (j.contains("type") && j["type"].contains("fields")) {
+        auto& json_fields = j["type"]["fields"];
+        for (size_t i = 0; i < json_fields.size() && i < config.root.children.size(); i++) {
+            inject_ui_settings(json_fields[i], config.root.children[i]);
+        }
+    }
+
+    // Write back
+    std::ofstream f_out(json_path);
+    if (!f_out.is_open()) {
+        fprintf(stderr, "Error: Could not open config file for writing: %s\n", json_path);
+        return false;
+    }
+
+    f_out << j.dump(2);
+    f_out.close();
+
+    printf("Saved UI settings to: %s\n", json_path);
     return true;
 }
