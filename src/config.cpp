@@ -147,7 +147,7 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
             // Handle struct/union - queue child fields
             if (type_str == "struct" || type_str == "union") {
                 if (j.contains("fields") && j["fields"].is_array()) {
-                    const auto& fields_array = j["fields"];
+                    const json& fields_array = j["fields"];
                     // Pre-allocate children
                     field.children.resize(fields_array.size());
                     // Push in reverse order so first child is processed first
@@ -160,7 +160,7 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
             else if (type_str == "array") {
                 field.array_size = j.value("total_elements", 0u);
                 if (j.contains("element_type")) {
-                    const auto& elem = j["element_type"];
+                    const json& elem = j["element_type"];
                     field.element_nbytes = elem.value("size", 0u);
 
                     std::string elem_type = elem.value("type", "");
@@ -182,7 +182,7 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
 
             // Parse UI settings if present
             if (j.contains("ui")) {
-                const auto& ui = j["ui"];
+                const json& ui = j["ui"];
                 field.subscribed = ui.value("subscribed", false);
                 field.expanded = ui.value("expanded", false);
                 field.display_scale = ui.value("display_scale", 1.0f);
@@ -257,7 +257,7 @@ static void inject_ui_settings_iterative(json& root_json, const std::vector<Dart
 
         // Queue children if present (structs/unions)
         if (j.contains("type_info") && j["type_info"].contains("fields")) {
-            auto& json_fields = j["type_info"]["fields"];
+            json& json_fields = j["type_info"]["fields"];
             for (size_t i = 0; i < json_fields.size() && i < field.children.size(); i++) {
                 stack.push_back({&json_fields[i], &field.children[i]});
             }

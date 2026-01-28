@@ -34,14 +34,14 @@ void shutdown_imgui() {
 
 void set_subscribed_recursive(DarttField& field, bool subscribed) {
     field.subscribed = subscribed;
-    for (auto& child : field.children) {
+    for (DarttField& child : field.children) {
         set_subscribed_recursive(child, subscribed);
     }
 }
 
 bool any_child_subscribed(const DarttField& field) {
     if (field.subscribed) return true;
-    for (const auto& child : field.children) {
+    for (const DarttField& child : field.children) {
         if (any_child_subscribed(child)) return true;
     }
     return false;
@@ -51,7 +51,7 @@ bool all_children_subscribed(const DarttField& field) {
     if (field.children.empty()) {
         return field.subscribed;
     }
-    for (const auto& child : field.children) {
+    for (const DarttField& child : field.children) {
         if (!all_children_subscribed(child)) return false;
     }
     return true;
@@ -188,7 +188,7 @@ static bool render_field_row(DarttField& field, int depth) {
 
     // Render children if node is open
     if (node_open && !is_leaf) {
-        for (auto& child : field.children) {
+        for (DarttField& child : field.children) {
             if (render_field_row(child, depth + 1)) {
                 value_edited = true;
             }

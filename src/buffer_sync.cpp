@@ -63,11 +63,6 @@ static std::vector<MemoryRegion> coalesce_fields(std::vector<DarttField*>& field
         return regions;
     }
 
-    // Sort by byte_offset
-    std::sort(fields.begin(), fields.end(), [](DarttField* a, DarttField* b) {
-        return a->byte_offset < b->byte_offset;
-    });
-
     // Start first region
     MemoryRegion current;
     current.start_offset = align_down_32(fields[0]->byte_offset);
