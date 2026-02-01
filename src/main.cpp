@@ -212,8 +212,12 @@ int main(int argc, char* argv[])
 		}
 
 		
-		plot.lines[0].points.push_back(fpoint_t(500,500));
-		plot.lines[0].points.push_back(fpoint_t(600,600));
+		plot.lines[0].points[0] = fpoint_t(500-50,500-50);
+		plot.lines[0].points[1] = fpoint_t(500+50, 500-50);
+		plot.lines[0].points[2] = fpoint_t(500+50,500+50);
+		plot.lines[0].points[3] = fpoint_t(500-50, 500+50);
+		plot.lines[0].points[4] = fpoint_t(500-50,500-50);
+		
 		
 		// Render
 		ImGui::Render();
