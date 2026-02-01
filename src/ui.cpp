@@ -227,12 +227,15 @@ static bool render_field_tree(DarttField* root) {
 
     stack.push_back({root, false});
 
-    while (!stack.empty()) {
+    while (!stack.empty()) 
+	{
+
         RenderWork work = stack.back();
         stack.pop_back();
 
         // TreePop marker - just pop and continue
-        if (work.is_tree_pop) {
+        if (work.is_tree_pop) 
+		{
             ImGui::TreePop();
             continue;
         }
@@ -240,17 +243,20 @@ static bool render_field_tree(DarttField* root) {
         bool is_leaf = work.field->children.empty();
 
         // Render this field's row
-        if (render_single_field(work.field)) {
+        if (render_single_field(work.field)) 
+		{
             any_edited = true;
         }
 
         // If node is open and has children, queue them
-        if (work.field->expanded && !is_leaf) {
+        if (work.field->expanded && !is_leaf) 
+		{
             // Push TreePop marker first (will be processed after children)
             stack.push_back({NULL, true});
 
             // Push children in reverse order so first child renders first
-            for (size_t i = work.field->children.size(); i > 0; i--) {
+            for (size_t i = work.field->children.size(); i > 0; i--) 
+			{
                 stack.push_back({&work.field->children[i - 1], false});
             }
         }
@@ -267,8 +273,14 @@ bool render_live_expressions(DarttConfig& config) {
     // Show config info
     ImGui::Text("Symbol: %s", config.symbol.c_str());
     ImGui::Text("Address: %s (%u bytes)", config.address_str.c_str(), config.nbytes);
-    ImGui::Separator();
+    bool save_clicked = ImGui::Button("Save", ImVec2(0,0));
+	if(save_clicked)
+	{
+		save_dartt_config("config.json", config);
+	}
 
+	ImGui::Separator();
+	
     // Create table with 3 columns
     ImGuiTableFlags table_flags = ImGuiTableFlags_BordersV
                                 | ImGuiTableFlags_BordersOuterH
