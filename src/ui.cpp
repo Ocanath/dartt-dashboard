@@ -97,7 +97,8 @@ struct RenderWork {
 };
 
 // Render a single field's row (called from iterative loop)
-static bool render_single_field(DarttField* field) {
+static bool render_single_field(DarttField* field) 
+{
     bool value_edited = false;
     bool is_leaf = field->children.empty();
 
@@ -118,11 +119,14 @@ static bool render_single_field(DarttField* field) {
     ImGui::PushID(field);
 
     bool node_open = false;
-    if (is_leaf) {
+    if (is_leaf) 
+	{
         // Leaf: just show name, no tree node behavior
         ImGui::TreeNodeEx(field->name.c_str(), flags);
         node_open = false;
-    } else {
+    } 
+	else 
+	{
         // Parent: expandable tree node
         node_open = ImGui::TreeNodeEx(field->name.c_str(), flags);
         field->expanded = node_open;
@@ -130,12 +134,14 @@ static bool render_single_field(DarttField* field) {
 
     // Column 1: Value
     ImGui::TableNextColumn();
-    if (is_leaf) {
+    if (is_leaf) 
+	{
         // Editable value box
         ImGui::SetNextItemWidth(-FLT_MIN); // Fill column width
 
         // Different input types based on field type
-        switch (field->type) {
+        switch (field->type) 
+		{
             case FieldType::FLOAT:
                 ImGui::InputFloat("##val", &field->value.f32, 0, 0, "%.6f");
                 if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field->dirty = true; }
@@ -182,7 +188,9 @@ static bool render_single_field(DarttField* field) {
                 ImGui::TextDisabled("???");
                 break;
         }
-    } else {
+    } 
+	else 
+	{
         // Parent node: show {...}
         ImGui::TextDisabled("{...}");
     }
@@ -209,19 +217,27 @@ static bool render_single_field(DarttField* field) {
         if (any_sub && !all_sub) {
             ImGui::PopStyleColor();
         }
-    } else {
-        if (ImGui::Checkbox("##sub", &field->subscribed)) {
+    } 
+	else 
+	{
+        if (ImGui::Checkbox("##sub", &field->subscribed)) 
+		{
             // Individual leaf subscription changed
         }
     }
 
+	/*Handle the yscale value entry box*/
+	ImGui::TableNextColumn();
+	ImGui::InputFloat("##displayscale", &field->display_scale, 0, 0, "%.2f");
+	
     ImGui::PopID();
 
     return value_edited;
 }
 
 // Render field tree iteratively, returns true if any value was edited
-static bool render_field_tree(DarttField* root) {
+static bool render_field_tree(DarttField* root) 
+{
     bool any_edited = false;
     std::vector<RenderWork> stack;
 
@@ -273,7 +289,7 @@ bool render_live_expressions(DarttConfig& config) {
     // Show config info
     ImGui::Text("Symbol: %s", config.symbol.c_str());
     ImGui::Text("Address: %s (%u bytes)", config.address_str.c_str(), config.nbytes);
-    bool save_clicked = ImGui::Button("Save", ImVec2(0,0));
+    bool save_clicked = ImGui::Button("Save");
 	if(save_clicked)
 	{
 		save_dartt_config("config.json", config);
@@ -288,11 +304,13 @@ bool render_live_expressions(DarttConfig& config) {
                                 | ImGuiTableFlags_RowBg
                                 | ImGuiTableFlags_NoBordersInBody;
 
-    if (ImGui::BeginTable("fields_table", 3, table_flags)) {
+    if (ImGui::BeginTable("fields_table", 4, table_flags)) 
+	{
         // Setup columns
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 150.0f);
         ImGui::TableSetupColumn("Sub", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+		ImGui::TableSetupColumn("Yscale", ImGuiTableColumnFlags_WidthFixed, 150.f);
         ImGui::TableHeadersRow();
 
         // Render the field tree iteratively

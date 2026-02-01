@@ -15,8 +15,8 @@ std::vector<MemoryRegion> build_write_queue(DarttConfig& config);
 std::vector<MemoryRegion> build_read_queue(DarttConfig& config);
 
 // Sync values between DarttField.value and flat buffers
-void sync_fields_to_ctl_buf(DarttConfig& config, const MemoryRegion& region);
-void sync_periph_buf_to_fields(DarttConfig& config, const MemoryRegion& region);
+bool sync_fields_to_ctl_buf(DarttConfig& config, const MemoryRegion& region);
+bool sync_periph_buf_to_fields(DarttConfig& config, const MemoryRegion& region);
 
 // Clear dirty flags after successful write
 void clear_dirty_flags(const MemoryRegion& region);

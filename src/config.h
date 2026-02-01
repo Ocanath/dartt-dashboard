@@ -49,6 +49,9 @@ struct DarttField {
     float display_scale;
     bool expanded;              // tree node expanded in UI
 
+
+	double display_value;	//the True Value, scaled by display scale.
+
     // Runtime value storage
     union {
         float f32;
@@ -90,30 +93,48 @@ struct DarttConfig {
     DarttField root;            // root struct containing all fields
 
     // DARTT buffers (allocated after parsing)
-    uint8_t* ctl_buf;           // controller copy (what we want)
-    uint8_t* periph_buf;        // peripheral copy (shadow, what device has)
+	buffer_t ctl_buf;
+	buffer_t periph_buf;
+    // uint8_t* ctl_buf;           // controller copy (what we want)
+    // uint8_t* periph_buf;        // peripheral copy (shadow, what device has)
 
     DarttConfig()
         : address(0)
         , nbytes(0)
         , nwords(0)
-        , ctl_buf(nullptr)
-        , periph_buf(nullptr)
+        , ctl_buf(0)
+        , periph_buf(0)
     {}
 
     ~DarttConfig() {
-        if (ctl_buf) free(ctl_buf);
-        if (periph_buf) free(periph_buf);
+        if (ctl_buf.buf)
+		{
+			free(ctl_buf.buf);
+		} 
+        if (periph_buf.buf)
+		{
+			free(periph_buf.buf);
+		} 
     }
 
     // Allocate buffers based on nbytes
-    bool allocate_buffers() {
-        if (nbytes == 0) return false;
+    bool allocate_buffers() 
+	{
+        if (nbytes == 0) 
+		{
+			return false;
+		}
 
-        ctl_buf = (uint8_t*)calloc(1, nbytes);
-        periph_buf = (uint8_t*)calloc(1, nbytes);
+        ctl_buf.buf = (uint8_t*)calloc(1, nbytes);
+		ctl_buf.len = nbytes;
+		ctl_buf.size = nbytes;
 
-        return (ctl_buf != nullptr && periph_buf != nullptr);
+        periph_buf.buf = (uint8_t*)calloc(1, nbytes);
+		periph_buf.len = nbytes;
+		periph_buf.size = nbytes;
+		
+
+        return (ctl_buf.buf != nullptr && periph_buf.buf != nullptr);
     }
 };
 

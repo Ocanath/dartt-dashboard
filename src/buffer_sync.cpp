@@ -100,110 +100,61 @@ static std::vector<MemoryRegion> coalesce_fields(std::vector<DarttField*>& field
     return regions;
 }
 
-std::vector<MemoryRegion> build_write_queue(DarttConfig& config) {
+std::vector<MemoryRegion> build_write_queue(DarttConfig& config) 
+{
     std::vector<DarttField*> dirty_fields;
     collect_dirty_fields(config.root, dirty_fields);
     return coalesce_fields(dirty_fields);
 }
 
-std::vector<MemoryRegion> build_read_queue(DarttConfig& config) {
+std::vector<MemoryRegion> build_read_queue(DarttConfig& config) 
+{
     std::vector<DarttField*> subscribed_fields;
     collect_subscribed_fields(config.root, subscribed_fields);
     return coalesce_fields(subscribed_fields);
 }
 
-void sync_fields_to_ctl_buf(DarttConfig& config, const MemoryRegion& region) {
-    if (!config.ctl_buf) return;
+bool sync_fields_to_ctl_buf(DarttConfig& config, const MemoryRegion& region) 
+{
+    if (!config.ctl_buf.buf) 
+	{
+		return false;
+	}
 
-    for (DarttField* field : region.fields) {
-        uint8_t* dst = config.ctl_buf + field->byte_offset;
-
-        switch (field->type) {
-            case FieldType::FLOAT:
-                std::memcpy(dst, &field->value.f32, sizeof(float));
-                break;
-            case FieldType::DOUBLE:
-                std::memcpy(dst, &field->value.f64, sizeof(double));
-                break;
-            case FieldType::INT8:
-                std::memcpy(dst, &field->value.i8, sizeof(int8_t));
-                break;
-            case FieldType::UINT8:
-                std::memcpy(dst, &field->value.u8, sizeof(uint8_t));
-                break;
-            case FieldType::INT16:
-                std::memcpy(dst, &field->value.i16, sizeof(int16_t));
-                break;
-            case FieldType::UINT16:
-                std::memcpy(dst, &field->value.u16, sizeof(uint16_t));
-                break;
-            case FieldType::INT32:
-            case FieldType::ENUM:
-                std::memcpy(dst, &field->value.i32, sizeof(int32_t));
-                break;
-            case FieldType::UINT32:
-            case FieldType::POINTER:
-                std::memcpy(dst, &field->value.u32, sizeof(uint32_t));
-                break;
-            case FieldType::INT64:
-                std::memcpy(dst, &field->value.i64, sizeof(int64_t));
-                break;
-            case FieldType::UINT64:
-                std::memcpy(dst, &field->value.u64, sizeof(uint64_t));
-                break;
-            default:
-                break;
-        }
+    for (DarttField* field : region.fields) 
+	{
+        uint8_t* dst = config.ctl_buf.buf + field->byte_offset;
+		if(field->byte_offset + field->nbytes > config.ctl_buf.size)
+		{
+			return false;
+		}
+		std::memcpy(dst, (unsigned char *)(&field->value.u8), field->nbytes);
     }
+	return true;
 }
 
-void sync_periph_buf_to_fields(DarttConfig& config, const MemoryRegion& region) {
-    if (!config.periph_buf) return;
+bool sync_periph_buf_to_fields(DarttConfig& config, const MemoryRegion& region) {
+    if (!config.periph_buf.buf) 
+	{
+		return false;
+	}
 
-    for (DarttField* field : region.fields) {
-        const uint8_t* src = config.periph_buf + field->byte_offset;
-
-        switch (field->type) {
-            case FieldType::FLOAT:
-                std::memcpy(&field->value.f32, src, sizeof(float));
-                break;
-            case FieldType::DOUBLE:
-                std::memcpy(&field->value.f64, src, sizeof(double));
-                break;
-            case FieldType::INT8:
-                std::memcpy(&field->value.i8, src, sizeof(int8_t));
-                break;
-            case FieldType::UINT8:
-                std::memcpy(&field->value.u8, src, sizeof(uint8_t));
-                break;
-            case FieldType::INT16:
-                std::memcpy(&field->value.i16, src, sizeof(int16_t));
-                break;
-            case FieldType::UINT16:
-                std::memcpy(&field->value.u16, src, sizeof(uint16_t));
-                break;
-            case FieldType::INT32:
-            case FieldType::ENUM:
-                std::memcpy(&field->value.i32, src, sizeof(int32_t));
-                break;
-            case FieldType::UINT32:
-            case FieldType::POINTER:
-                std::memcpy(&field->value.u32, src, sizeof(uint32_t));
-                break;
-            case FieldType::INT64:
-                std::memcpy(&field->value.i64, src, sizeof(int64_t));
-                break;
-            case FieldType::UINT64:
-                std::memcpy(&field->value.u64, src, sizeof(uint64_t));
-                break;
-            default:
-                break;
-        }
+    for (DarttField* field : region.fields) 
+	{
+        const uint8_t* src = config.periph_buf.buf + field->byte_offset;
+		if(field->byte_offset + field->nbytes > config.periph_buf.size)
+		{
+			return false;
+		}
+		std::memcpy((unsigned char *)(&field->value.u8), src, field->nbytes);
     }
+	return true;
 }
 
-void clear_dirty_flags(const MemoryRegion& region) {
-    for (DarttField* field : region.fields) {
+void clear_dirty_flags(const MemoryRegion& region)
+{
+    for (DarttField* field : region.fields) 
+	{
         field->dirty = false;
     }
 }
