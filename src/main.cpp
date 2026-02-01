@@ -215,40 +215,45 @@ int main(int argc, char* argv[])
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out 
 		float tick_sec = 0;
 		float pos_deg = 0;
+		int values_obtained = 0;
 		for(int i = 0; i < leaf_list.size(); i++)
 		{
 			if(leaf_list[i]->name == "tick")
 			{
 				tick_sec = leaf_list[i]->display_value;
+				values_obtained++;
 			}
 			if(leaf_list[i]->name == "theta_rem_m")
 			{
 				pos_deg = leaf_list[i]->display_value;
+				values_obtained++;
 			}
 		}
-		
-		if(plot.lines[0].points.size() >= 2)
+		if(values_obtained == 2)
 		{
-			float div = plot.lines[0].points.back().x - plot.lines[0].points.front().x;
-			if(div > 0)
+			if(plot.lines[0].points.size() >= 2)
 			{
-				plot.xscale = ((float)plot.window_width)/div;
+				float div = plot.lines[0].points.back().x - plot.lines[0].points.front().x;
+				if(div > 0)
+				{
+					plot.xscale = ((float)plot.window_width)/div;
+				}
+				else if(div < 0) //decreasing time
+				{
+					plot.lines[0].points.clear();	//this just sets size=0 - can preallocate and clear for speed
+				}	
 			}
-			else if(div < 0) //decreasing time
+	
+			if(plot.lines[0].points.size() < width)	//cap on buffer width - may want to expand
 			{
-				plot.lines[0].points.clear();	//this just sets size=0 - can preallocate and clear for speed
+				plot.lines[0].points.push_back(fpoint_t(tick_sec, pos_deg));
 			}	
+			else
+			{
+				std::rotate(plot.lines[0].points.begin(), plot.lines[0].points.begin() + 1, plot.lines[0].points.end());
+				plot.lines[0].points.back() = fpoint_t(tick_sec, pos_deg);
+			}		
 		}
-
-		if(plot.lines[0].points.size() < width)	//cap on buffer width - may want to expand
-		{
-			plot.lines[0].points.push_back(fpoint_t(tick_sec, pos_deg));
-		}	
-		else
-		{
-			std::rotate(plot.lines[0].points.begin(), plot.lines[0].points.begin() + 1, plot.lines[0].points.end());
-			plot.lines[0].points.back() = fpoint_t(tick_sec, pos_deg);
-		}	
 
 		// Render
 		ImGui::Render();

@@ -84,7 +84,8 @@ bool Plotter::init(int width, int height)
 	// Initialize with one line
 	lines.resize(1);
 	lines[0].resize(line_capacity);
-
+	lines[0].points.clear();
+	
 	return true;
 }
 
