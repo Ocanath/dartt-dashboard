@@ -96,6 +96,71 @@ struct RenderWork {
     bool is_tree_pop;  // true = just call TreePop(), no rendering
 };
 
+void calculate_display_values(const std::vector<DarttField*> &leaf_list)
+{
+	for(int i = 0; i < leaf_list.size(); i++)
+	{
+		DarttField * leaf = leaf_list[i];
+		if(leaf->subscribed)
+		{
+			switch (leaf->type) 
+			{
+				case FieldType::FLOAT:
+				{
+					leaf->display_value = leaf->value.f32 * leaf->display_scale;
+					break;
+				}
+				case FieldType::INT32:
+				{
+					leaf->display_value = ((float)leaf->value.i32)*leaf->display_scale;
+					break;
+				}
+				case FieldType::UINT32:
+				{
+					leaf->display_value = ((float)leaf->value.u32)*leaf->display_scale;
+					break;
+				}
+				case FieldType::INT16:
+				{
+					leaf->display_value = ((float)leaf->value.i16) * leaf->display_scale;
+					break;
+				}
+				case FieldType::UINT16:
+				{
+					leaf->display_value = ((float)leaf->value.u16) * leaf->display_scale;
+					break;
+				}
+				case FieldType::INT8:
+				{
+					leaf->display_value = ((float)leaf->value.i8) * leaf->display_scale;
+					break;
+				}
+				case FieldType::UINT8:
+				{
+					leaf->display_value = ((float)leaf->value.u8) * leaf->display_scale;
+					break;
+				}
+				case FieldType::DOUBLE:
+				{
+					leaf->display_value = (float)leaf->value.f64 * leaf->display_scale;
+					break;
+				}
+				case FieldType::INT64:
+				{
+					leaf->display_value = ((float)leaf->value.i64) * leaf->display_scale;
+					break;
+				}
+				case FieldType::UINT64:
+				{
+					leaf->display_value = ((float)leaf->value.u64) * leaf->display_scale;
+					break;
+				}
+				default:
+					break;
+			}	
+		}
+	}
+}
 
 void float_field_handler(DarttField* field)
 {
@@ -110,7 +175,6 @@ void float_field_handler(DarttField* field)
 	}
 	else
 	{
-		field->display_value = field->value.f32 * field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
@@ -134,7 +198,6 @@ void int32_field_handler(DarttField * field)
 	}
 	else
 	{
-		field->display_value = ((float)field->value.i32)*field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit()) 
 		{ 
@@ -153,7 +216,6 @@ void uint32_field_handler(DarttField * field)
 	}
 	else
 	{
-		field->display_value = ((float)field->value.u32)*field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit()) 
 		{ 
@@ -173,7 +235,6 @@ void int16_field_handler(DarttField* field)
 	}
 	else
 	{
-		field->display_value = ((float)field->value.i16) * field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
@@ -192,7 +253,6 @@ void uint16_field_handler(DarttField* field)
 	}
 	else
 	{
-		field->display_value = ((float)field->value.u16) * field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
@@ -211,7 +271,6 @@ void int8_field_handler(DarttField* field)
 	}
 	else
 	{
-		field->display_value = ((float)field->value.i8) * field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
@@ -230,7 +289,6 @@ void uint8_field_handler(DarttField* field)
 	}
 	else
 	{
-		field->display_value = ((float)field->value.u8) * field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
@@ -249,7 +307,6 @@ void double_field_handler(DarttField* field)
 	}
 	else
 	{
-		field->display_value = (float)field->value.f64 * field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
@@ -268,7 +325,6 @@ void int64_field_handler(DarttField* field)
 	}
 	else
 	{
-		field->display_value = ((float)field->value.i64) * field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{
@@ -287,7 +343,6 @@ void uint64_field_handler(DarttField* field)
 	}
 	else
 	{
-		field->display_value = ((float)field->value.u64) * field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
 		if (ImGui::IsItemDeactivatedAfterEdit())
 		{

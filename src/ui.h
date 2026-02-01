@@ -23,4 +23,6 @@ bool any_child_subscribed(const DarttField* root);
 // Helper: check if all children are subscribed
 bool all_children_subscribed(const DarttField* root);
 
+void calculate_display_values(const std::vector<DarttField*> &leaf_list);
+
 #endif // DARTT_UI_H

@@ -108,6 +108,9 @@ int main(int argc, char* argv[])
 		printf("Failed to load config.json\n");
 		// Continue anyway - UI will be empty
 	}
+	//do this once per load - create a list of leaves. 
+	std::vector<DarttField*> leaf_list;
+	collect_leaves(config.root, leaf_list);	//we do not need to do this each time
 
 	// Allocate DARTT buffers
 	if (config.nbytes > 0) 
@@ -157,11 +160,11 @@ int main(int argc, char* argv[])
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
 
+		calculate_display_values(leaf_list);		
+		
 		// Render UI
 		bool value_edited = render_live_expressions(config);
 		(void)value_edited; // Used for debugging if needed
-		std::vector<DarttField*> leaf_list;
-		collect_leaves(config.root, leaf_list);
 
 		// WRITE: Send dirty fields to device
 		if (config.ctl_buf.buf && config.periph_buf.buf) {
