@@ -231,6 +231,18 @@ int main(int argc, char* argv[])
 		}
 		if(values_obtained == 2)
 		{
+			//enqueue data
+			if(plot.lines[0].points.size() < width)	//cap on buffer width - may want to expand
+			{
+				plot.lines[0].points.push_back(fpoint_t(tick_sec, pos_deg));
+			}	
+			else
+			{
+				std::rotate(plot.lines[0].points.begin(), plot.lines[0].points.begin() + 1, plot.lines[0].points.end());
+				plot.lines[0].points.back() = fpoint_t(tick_sec, pos_deg);
+			}		
+
+			//THEN calculate xscale based on current buffer state
 			if(plot.lines[0].points.size() >= 2)
 			{
 				float div = plot.lines[0].points.back().x - plot.lines[0].points.front().x;
@@ -244,16 +256,7 @@ int main(int argc, char* argv[])
 					plot.lines[0].points.clear();	//this just sets size=0 - can preallocate and clear for speed
 				}	
 			}
-	
-			if(plot.lines[0].points.size() < width)	//cap on buffer width - may want to expand
-			{
-				plot.lines[0].points.push_back(fpoint_t(tick_sec, pos_deg));
-			}	
-			else
-			{
-				std::rotate(plot.lines[0].points.begin(), plot.lines[0].points.begin() + 1, plot.lines[0].points.end());
-				plot.lines[0].points.back() = fpoint_t(tick_sec, pos_deg);
-			}		
+
 		}
 
 		// Render
