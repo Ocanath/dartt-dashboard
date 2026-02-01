@@ -157,9 +157,6 @@ int main(int argc, char* argv[])
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
 		
-		// Render UI
-		bool value_edited = render_live_expressions(config);
-		(void)value_edited; // Used for debugging if needed
 
 		// WRITE: Send dirty fields to device
 		if (config.ctl_buf.buf && config.periph_buf.buf) {
@@ -211,6 +208,9 @@ int main(int argc, char* argv[])
 		
 		calculate_display_values(config.leaf_list);		
 
+		// Render UI
+		bool value_edited = render_live_expressions(config);
+
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out 
 		float tick_sec = 0;
@@ -240,6 +240,7 @@ int main(int argc, char* argv[])
 				}
 				else if(div < 0) //decreasing time
 				{
+
 					plot.lines[0].points.clear();	//this just sets size=0 - can preallocate and clear for speed
 				}	
 			}
