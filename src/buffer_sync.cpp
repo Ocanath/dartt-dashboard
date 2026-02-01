@@ -3,46 +3,57 @@
 #include <cstring>
 #include <vector>
 
-// Collect all dirty leaf fields
-static void collect_dirty_fields(DarttField& root, std::vector<DarttField*>& out) {
+/*
+Function to collect a list of all leaves. One-time depth first search traversal
+for leaf-only operations
+*/
+void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list)
+{
     std::vector<DarttField*> stack;
     stack.push_back(&root);
-
-    while (!stack.empty()) {
-        DarttField* field = stack.back();
+    while (!stack.empty()) 
+	{
+		DarttField* field = stack.back();
         stack.pop_back();
+		if(field->children.empty())	//leaf node
+		{
+			leaf_list.push_back(field);
+		}
+		else
+		{
+			//pattern > 0 prevents underflow of the size_t resulting in an infinite loop. size_t matches size() return value and has compile time size guarantees.
+			for(size_t i = field->children.size(); i > 0; i--)
+			{
+				stack.push_back(&field->children[i - 1]);
+			}
+		}
+	}
+}
 
-        if (field->children.empty()) {
-            if (field->dirty) {
-                out.push_back(field);
-            }
-        } else {
-            for (size_t i = field->children.size(); i > 0; i--) {
-                stack.push_back(&field->children[i - 1]);
-            }
-        }
-    }
+// Collect all dirty leaf fields
+static void collect_dirty_fields(const std::vector<DarttField*> &leaf_list, std::vector<DarttField*>& out) 
+{
+	for(size_t i = 0; i < leaf_list.size(); i++)
+	{
+		DarttField * leaf = leaf_list[i];
+		if (leaf->dirty) 
+		{
+			out.push_back(leaf);
+		}
+	}
 }
 
 // Collect all subscribed leaf fields
-static void collect_subscribed_fields(DarttField& root, std::vector<DarttField*>& out) {
-    std::vector<DarttField*> stack;
-    stack.push_back(&root);
-
-    while (!stack.empty()) {
-        DarttField* field = stack.back();
-        stack.pop_back();
-
-        if (field->children.empty()) {
-            if (field->subscribed) {
-                out.push_back(field);
-            }
-        } else {
-            for (size_t i = field->children.size(); i > 0; i--) {
-                stack.push_back(&field->children[i - 1]);
-            }
-        }
-    }
+static void collect_subscribed_fields(const std::vector<DarttField*> &leaf_list, std::vector<DarttField*>& out) 
+{
+	for(size_t i = 0; i < leaf_list.size(); i++)
+	{
+		DarttField * leaf = leaf_list[i];
+		if (leaf->subscribed) 
+		{
+			out.push_back(leaf);
+		}
+	}
 }
 
 // Align offset down to 32-bit boundary
@@ -100,17 +111,17 @@ static std::vector<MemoryRegion> coalesce_fields(std::vector<DarttField*>& field
     return regions;
 }
 
-std::vector<MemoryRegion> build_write_queue(DarttConfig& config) 
+std::vector<MemoryRegion> build_write_queue(DarttConfig& config, const std::vector<DarttField*> &leaf_list) 
 {
     std::vector<DarttField*> dirty_fields;
-    collect_dirty_fields(config.root, dirty_fields);
+    collect_dirty_fields(leaf_list, dirty_fields);
     return coalesce_fields(dirty_fields);
 }
 
-std::vector<MemoryRegion> build_read_queue(DarttConfig& config) 
+std::vector<MemoryRegion> build_read_queue(DarttConfig& config, const std::vector<DarttField*> &leaf_list) 
 {
     std::vector<DarttField*> subscribed_fields;
-    collect_subscribed_fields(config.root, subscribed_fields);
+    collect_subscribed_fields(leaf_list, subscribed_fields);
     return coalesce_fields(subscribed_fields);
 }
 

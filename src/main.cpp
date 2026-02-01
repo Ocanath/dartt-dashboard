@@ -160,10 +160,12 @@ int main(int argc, char* argv[])
 		// Render UI
 		bool value_edited = render_live_expressions(config);
 		(void)value_edited; // Used for debugging if needed
+		std::vector<DarttField*> leaf_list;
+		collect_leaves(config.root, leaf_list);
 
 		// WRITE: Send dirty fields to device
 		if (config.ctl_buf.buf && config.periph_buf.buf) {
-			std::vector<MemoryRegion> write_queue = build_write_queue(config);
+			std::vector<MemoryRegion> write_queue = build_write_queue(config, leaf_list);
 			for (MemoryRegion& region : write_queue) {
 				sync_fields_to_ctl_buf(config, region);
 
@@ -186,7 +188,7 @@ int main(int argc, char* argv[])
 		// READ: Poll subscribed fields from device
 		if (config.ctl_buf.buf && config.periph_buf.buf)
 		{
-			std::vector<MemoryRegion> read_queue = build_read_queue(config);
+			std::vector<MemoryRegion> read_queue = build_read_queue(config, leaf_list);
 			for (MemoryRegion& region : read_queue) 
 			{
 				buffer_t slice = 
@@ -209,6 +211,7 @@ int main(int argc, char* argv[])
 			}
 		}
 
+		
 		plot.lines[0].points.push_back(fpoint_t(500,500));
 		plot.lines[0].points.push_back(fpoint_t(600,600));
 		
