@@ -156,8 +156,6 @@ int main(int argc, char* argv[])
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
-
-		calculate_display_values(config.leaf_list);		
 		
 		// Render UI
 		bool value_edited = render_live_expressions(config);
@@ -210,6 +208,8 @@ int main(int argc, char* argv[])
 				}
 			}
 		}
+		
+		calculate_display_values(config.leaf_list);		
 
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out 
