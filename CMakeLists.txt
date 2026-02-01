@@ -52,6 +52,7 @@ add_executable(${PROJECT_NAME}
 	src/config.cpp
 	src/ui.cpp
 	src/buffer_sync.cpp
+	src/plotting.cpp
 )
 
 # Debug symbols

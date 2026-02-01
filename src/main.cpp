@@ -33,6 +33,8 @@
 #include "dartt_init.h"
 #include "ui.h"
 #include "buffer_sync.h"
+#include "plotting.h"
+
 
 int main(int argc, char* argv[])
 {
@@ -86,6 +88,9 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	// Plotter plot;
+	// plot.init(window, 3);
+	
 	// Serial connection
 	int rc = serial.autoconnect(921600);
 	if (rc != true) 
