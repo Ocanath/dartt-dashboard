@@ -211,26 +211,44 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		double t = (double)SDL_GetTicks64()/1000.;
-		float x = cos(t)*100;
-		float y = sin(t)*100;
 
-		if(plot.lines[0].points.size() < 5)
+		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out 
+		float tick_sec = 0;
+		float pos_deg = 0;
+		for(int i = 0; i < leaf_list.size(); i++)
 		{
-			plot.lines[0].points.push_back(fpoint_t(500-50 + x, 500-50 + y));
-			plot.lines[0].points.push_back(fpoint_t(500+50 + x, 500-50 + y));
-			plot.lines[0].points.push_back(fpoint_t(500+50 + x,500+50 + y));
-			plot.lines[0].points.push_back(fpoint_t(500-50 + x, 500+50 + y));
-			plot.lines[0].points.push_back(fpoint_t(500-50 + x,500-50 + y));
+			if(leaf_list[i]->name == "tick")
+			{
+				tick_sec = leaf_list[i]->display_value;
+			}
+			if(leaf_list[i]->name == "theta_rem_m")
+			{
+				pos_deg = leaf_list[i]->display_value;
+			}
 		}
+		
+		if(plot.lines[0].points.size() >= 2)
+		{
+			float div = plot.lines[0].points.back().x - plot.lines[0].points.front().x;
+			if(div > 0)
+			{
+				plot.xscale = ((float)plot.window_width)/div;
+			}
+			else if(div < 0) //decreasing time
+			{
+				plot.lines[0].points.clear();	//this just sets size=0 - can preallocate and clear for speed
+			}	
+		}
+
+		if(plot.lines[0].points.size() < width)	//cap on buffer width - may want to expand
+		{
+			plot.lines[0].points.push_back(fpoint_t(tick_sec, pos_deg));
+		}	
 		else
 		{
-			plot.lines[0].points[0] = (fpoint_t(500-50 + x,500-50 + y));
-			plot.lines[0].points[1] = (fpoint_t(500+50 + x, 500-50 + y));
-			plot.lines[0].points[2] = (fpoint_t(500+50 + x,500+50 + y));
-			plot.lines[0].points[3] = (fpoint_t(500-50 + x, 500+50 + y));
-			plot.lines[0].points[4] = (fpoint_t(500-50 + x,500-50 + y));			
-		}
+			std::rotate(plot.lines[0].points.begin(), plot.lines[0].points.begin() + 1, plot.lines[0].points.end());
+			plot.lines[0].points.back() = fpoint_t(tick_sec, pos_deg);
+		}	
 
 		// Render
 		ImGui::Render();

@@ -41,8 +41,9 @@ public:
 class Plotter
 {
 public:
-	int plot_width;
-	int plot_height;
+	int window_width;
+	int window_height;
+	float xscale;
 	int num_widths;
 	std::vector<Line> lines;
 

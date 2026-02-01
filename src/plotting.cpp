@@ -62,8 +62,8 @@ fpoint_t* Line::data()
 
 // Plotter class implementation
 Plotter::Plotter()
-	: plot_width(0)
-	, plot_height(0)
+	: window_width(0)
+	, window_height(0)
 	, num_widths(1)
 	, lines()
 {
@@ -76,9 +76,9 @@ bool Plotter::init(int width, int height)
 		return false;
 	}
 
-	plot_width = width;
-	plot_height = height;
-	
+	window_width = width;
+	window_height = height;
+	xscale = 1;
 	int line_capacity = 0;
 
 	// Initialize with one line
@@ -94,7 +94,7 @@ void Plotter::render()
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
 	glLoadIdentity();
-	glOrtho(0, plot_width, 0, plot_height, -1, 1);
+	glOrtho(0, window_width, 0, window_height, -1, 1);
 
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
@@ -115,7 +115,9 @@ void Plotter::render()
 		glBegin(GL_LINE_STRIP);
 		for (int j = 0; j < num_points; j++)
 		{
-			glVertex2f(line->points[j].x, line->points[j].y);
+			int x = (int)( (line->points[j].x - line->points.front().x) *xscale);
+			int y = (int)(line->points[j].y + (float)window_height/2.f);
+			glVertex2f(x, y);
 		}
 		glEnd();
 	}
