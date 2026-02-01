@@ -1,8 +1,8 @@
 #ifndef PLOTTING_H
 #define PLOTTING_H
 
-#include <SDL.h>
 #include <vector>
+#include <cstdint>
 
 struct fpoint_t
 {
@@ -13,10 +13,22 @@ struct fpoint_t
 	fpoint_t(float x_val, float y_val);
 };
 
+struct color_t
+{
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+	uint8_t a;
+
+	color_t();
+	color_t(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha);
+};
+
 class Line
 {
 public:
 	std::vector<fpoint_t> points;
+	color_t color;
 
 	Line();
 	Line(int capacity);
@@ -29,20 +41,18 @@ public:
 class Plotter
 {
 public:
-	SDL_Window* window;
-	SDL_Renderer* renderer;
-	int screen_width;
-	int screen_height;
+	int plot_width;
+	int plot_height;
 	int num_widths;
 	std::vector<Line> lines;
 
 	Plotter();
 
-	// Initialize the plot with a window, existing renderer, and number of screen widths for buffer
-	bool init(SDL_Window* win, SDL_Renderer* rend, int n_widths);
+	// Initialize the plotter with dimensions and number of widths for buffer
+	bool init(int width, int height, int n_widths);
 
-	// Render all lines
+	// Render all lines directly to OpenGL framebuffer
 	void render();
 };
 
-#endif // DARTT_PLOTTING_H
+#endif // PLOTTING_H

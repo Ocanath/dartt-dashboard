@@ -1,4 +1,4 @@
-#include <SDL.h>
+#include <GL/gl.h>
 #include <vector>
 #include "plotting.h"
 
@@ -15,14 +15,33 @@ fpoint_t::fpoint_t(float x_val, float y_val)
 {
 }
 
+// color_t definition
+color_t::color_t()
+	: r(255)
+	, g(255)
+	, b(255)
+	, a(255)
+{
+}
+
+color_t::color_t(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+	: r(red)
+	, g(green)
+	, b(blue)
+	, a(alpha)
+{
+}
+
 // Line class implementation
 Line::Line()
 	: points()
+	, color()
 {
 }
 
 Line::Line(int capacity)
 	: points(capacity)
+	, color()
 {
 }
 
@@ -41,31 +60,27 @@ fpoint_t* Line::data()
 	return points.data();
 }
 
-// Plot class implementation
+// Plotter class implementation
 Plotter::Plotter()
-	: window(NULL)
-	, renderer(NULL)
-	, screen_width(0)
-	, screen_height(0)
+	: plot_width(0)
+	, plot_height(0)
 	, num_widths(1)
 	, lines()
 {
 }
 
-bool Plotter::init(SDL_Window* win, SDL_Renderer* rend, int n_widths)
+bool Plotter::init(int width, int height, int n_widths)
 {
-	if (win == NULL || rend == NULL)
+	if (width <= 0 || height <= 0)
 	{
 		return false;
 	}
 
-	window = win;
-	renderer = rend;
+	plot_width = width;
+	plot_height = height;
 	num_widths = n_widths;
 
-	SDL_GetWindowSize(window, &screen_width, &screen_height);
-
-	int line_capacity = screen_width * num_widths;
+	int line_capacity = plot_width * num_widths;
 
 	// Initialize with one line
 	lines.resize(1);
@@ -76,5 +91,39 @@ bool Plotter::init(SDL_Window* win, SDL_Renderer* rend, int n_widths)
 
 void Plotter::render()
 {
-	// TODO: implement rendering
+	// Save current matrix state
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0, plot_width, 0, plot_height, -1, 1);
+
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+
+	// Draw each line
+	for (int i = 0; i < (int)lines.size(); i++)
+	{
+		Line* line = &lines[i];
+		int num_points = line->size();
+
+		if (num_points < 2)
+		{
+			continue;
+		}
+
+		glColor4ub(line->color.r, line->color.g, line->color.b, line->color.a);
+		glBegin(GL_LINE_STRIP);
+		for (int j = 0; j < num_points; j++)
+		{
+			glVertex2f(line->points[j].x, line->points[j].y);
+		}
+		glEnd();
+	}
+
+	// Restore matrix state
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
 }

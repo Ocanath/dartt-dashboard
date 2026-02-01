@@ -88,8 +88,11 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	// Plotter plot;
-	// plot.init(window, 3);
+	Plotter plot;
+	int width = 0;
+	int height = 0;
+	SDL_GetWindowSize(window, &width, &height);
+	plot.init(width, height, 5);
 	
 	// Serial connection
 	int rc = serial.autoconnect(921600);
@@ -206,6 +209,9 @@ int main(int argc, char* argv[])
 			}
 		}
 
+		plot.lines[0].points.push_back(fpoint_t(500,500));
+		plot.lines[0].points.push_back(fpoint_t(600,600));
+		
 		// Render
 		ImGui::Render();
 		int display_w, display_h;
@@ -213,6 +219,7 @@ int main(int argc, char* argv[])
 		glViewport(0, 0, display_w, display_h);
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
+		plot.render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		SDL_GL_SwapWindow(window);
