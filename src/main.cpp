@@ -108,9 +108,6 @@ int main(int argc, char* argv[])
 		printf("Failed to load config.json\n");
 		// Continue anyway - UI will be empty
 	}
-	//do this once per load - create a list of leaves. 
-	std::vector<DarttField*> leaf_list;
-	collect_leaves(config.root, leaf_list);	//we do not need to do this each time
 
 	// Allocate DARTT buffers
 	if (config.nbytes > 0) 
@@ -160,7 +157,7 @@ int main(int argc, char* argv[])
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
 
-		calculate_display_values(leaf_list);		
+		calculate_display_values(config.leaf_list);		
 		
 		// Render UI
 		bool value_edited = render_live_expressions(config);
@@ -168,7 +165,7 @@ int main(int argc, char* argv[])
 
 		// WRITE: Send dirty fields to device
 		if (config.ctl_buf.buf && config.periph_buf.buf) {
-			std::vector<MemoryRegion> write_queue = build_write_queue(config, leaf_list);
+			std::vector<MemoryRegion> write_queue = build_write_queue(config, config.leaf_list);
 			for (MemoryRegion& region : write_queue) {
 				sync_fields_to_ctl_buf(config, region);
 
@@ -191,7 +188,7 @@ int main(int argc, char* argv[])
 		// READ: Poll subscribed fields from device
 		if (config.ctl_buf.buf && config.periph_buf.buf)
 		{
-			std::vector<MemoryRegion> read_queue = build_read_queue(config, leaf_list);
+			std::vector<MemoryRegion> read_queue = build_read_queue(config, config.leaf_list);
 			for (MemoryRegion& region : read_queue) 
 			{
 				buffer_t slice = 
@@ -219,16 +216,16 @@ int main(int argc, char* argv[])
 		float tick_sec = 0;
 		float pos_deg = 0;
 		int values_obtained = 0;
-		for(int i = 0; i < leaf_list.size(); i++)
+		for(int i = 0; i < config.leaf_list.size(); i++)
 		{
-			if(leaf_list[i]->name == "tick")
+			if(config.leaf_list[i]->name == "tick")
 			{
-				tick_sec = leaf_list[i]->display_value;
+				tick_sec = config.leaf_list[i]->display_value;
 				values_obtained++;
 			}
-			if(leaf_list[i]->name == "theta_rem_m")
+			if(config.leaf_list[i]->name == "theta_rem_m")
 			{
-				pos_deg = leaf_list[i]->display_value;
+				pos_deg = config.leaf_list[i]->display_value;
 				values_obtained++;
 			}
 		}

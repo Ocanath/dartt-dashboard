@@ -10,8 +10,6 @@ struct MemoryRegion {
     std::vector<DarttField*> fields;    // Leaf fields in this region
 };
 
-// Collect a list of all leaves
-void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list);
 
 // Build coalesced queues
 std::vector<MemoryRegion> build_write_queue(DarttConfig& config, const std::vector<DarttField*> &leaf_list);

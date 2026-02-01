@@ -100,6 +100,9 @@ struct DarttConfig {
     // uint8_t* ctl_buf;           // controller copy (what we want)
     // uint8_t* periph_buf;        // peripheral copy (shadow, what device has)
 
+	//A flat list of the leaves - for easy access, loaded with the initialization from file
+	std::vector<DarttField*> leaf_list;
+	
     DarttConfig()
         : address(0)
         , nbytes(0)
@@ -143,6 +146,9 @@ struct DarttConfig {
 // Parse config from JSON file
 // Returns true on success, false on error (error message printed to stderr)
 bool load_dartt_config(const char* json_path, DarttConfig& config);
+
+// Collect a list of all leaves
+void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list);
 
 // Save config to JSON file (preserves UI settings)
 // Returns true on success, false on error (error message printed to stderr)

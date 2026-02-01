@@ -213,6 +213,33 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
     }
 }
 
+/*
+Function to collect a list of all leaves. One-time depth first search traversal
+for leaf-only operations
+*/
+void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list)
+{
+    std::vector<DarttField*> stack;
+    stack.push_back(&root);
+    while (!stack.empty()) 
+	{
+		DarttField* field = stack.back();
+        stack.pop_back();
+		if(field->children.empty())	//leaf node
+		{
+			leaf_list.push_back(field);
+		}
+		else
+		{
+			//pattern > 0 prevents underflow of the size_t resulting in an infinite loop. size_t matches size() return value and has compile time size guarantees.
+			for(size_t i = field->children.size(); i > 0; i--)
+			{
+				stack.push_back(&field->children[i - 1]);
+			}
+		}
+	}
+}
+
 // Main config loader
 bool load_dartt_config(const char* json_path, DarttConfig& config) 
 {
@@ -250,7 +277,8 @@ bool load_dartt_config(const char* json_path, DarttConfig& config)
 
     printf("Loaded config: symbol=%s, address=0x%08X, nbytes=%u, nwords=%u\n",
            config.symbol.c_str(), config.address, config.nbytes, config.nwords);
-
+	
+	collect_leaves(config.root, config.leaf_list);
     return true;
 }
 
