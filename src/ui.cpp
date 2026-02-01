@@ -97,14 +97,22 @@ struct RenderWork {
 };
 
 
-void float_field_handler(DarttField * field, bool use_native_type)
+void float_field_handler(DarttField* field, bool use_native_type)
 {
-	field->display_value = field->value.f32*field->display_scale;
-	ImGui::InputFloat("##val", &field->display_value, 0, 0, "%f");
-	if (ImGui::IsItemDeactivatedAfterEdit()) 
+	if (use_native_type)
 	{
-		field->value.f32 = field->display_value/field->display_scale;
-		field->dirty = true; 
+		ImGui::InputFloat("##val", &field->value.f32, 0, 0, "%f");
+		field->dirty = ImGui::IsItemDeactivatedAfterEdit();
+	}
+	else
+	{
+		field->display_value = field->value.f32 * field->display_scale;
+		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			field->dirty = true;
+			field->value.f32 = (float)(field->display_value / field->display_scale);
+		}
 	}
 }
 
@@ -147,27 +155,138 @@ void uint32_field_handler(DarttField * field, bool use_native_type)
 }
 
 
-void int16_field_handler(DarttField * field, bool use_native_type)
+void int16_field_handler(DarttField* field, bool use_native_type)
 {
-	if(use_native_type)
+	if (use_native_type)
 	{
 		ImGui::InputScalar("##val", ImGuiDataType_S16, &field->value.i16, 0, 0);
-		field->dirty = ImGui::IsItemDeactivatedAfterEdit(); 
+		field->dirty = ImGui::IsItemDeactivatedAfterEdit();
 	}
 	else
 	{
-		field->display_value = ((float)field->value.i16)*field->display_scale;
+		field->display_value = ((double)field->value.i16) * field->display_scale;
 		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
-		if (ImGui::IsItemDeactivatedAfterEdit()) 
-		{ 
-			//TODO: add some bounds checking?
-			field->dirty = true; 
-			field->value.i16 = (int16_t)(field->display_value/field->display_scale);
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			field->dirty = true;
+			field->value.i16 = (int16_t)(field->display_value / field->display_scale);
 		}
 	}
 }
 
+void uint16_field_handler(DarttField* field, bool use_native_type)
+{
+	if (use_native_type)
+	{
+		ImGui::InputScalar("##val", ImGuiDataType_U16, &field->value.u16, 0, 0);
+		field->dirty = ImGui::IsItemDeactivatedAfterEdit();
+	}
+	else
+	{
+		field->display_value = ((double)field->value.u16) * field->display_scale;
+		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			field->dirty = true;
+			field->value.u16 = (uint16_t)(field->display_value / field->display_scale);
+		}
+	}
+}
 
+void int8_field_handler(DarttField* field, bool use_native_type)
+{
+	if (use_native_type)
+	{
+		ImGui::InputScalar("##val", ImGuiDataType_S8, &field->value.i8, 0, 0);
+		field->dirty = ImGui::IsItemDeactivatedAfterEdit();
+	}
+	else
+	{
+		field->display_value = ((double)field->value.i8) * field->display_scale;
+		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			field->dirty = true;
+			field->value.i8 = (int8_t)(field->display_value / field->display_scale);
+		}
+	}
+}
+
+void uint8_field_handler(DarttField* field, bool use_native_type)
+{
+	if (use_native_type)
+	{
+		ImGui::InputScalar("##val", ImGuiDataType_U8, &field->value.u8, 0, 0);
+		field->dirty = ImGui::IsItemDeactivatedAfterEdit();
+	}
+	else
+	{
+		field->display_value = ((double)field->value.u8) * field->display_scale;
+		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			field->dirty = true;
+			field->value.u8 = (uint8_t)(field->display_value / field->display_scale);
+		}
+	}
+}
+
+void double_field_handler(DarttField* field, bool use_native_type)
+{
+	if (use_native_type)
+	{
+		ImGui::InputDouble("##val", &field->value.f64, 0, 0, "%f");
+		field->dirty = ImGui::IsItemDeactivatedAfterEdit();
+	}
+	else
+	{
+		field->display_value = (float)field->value.f64 * field->display_scale;
+		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			field->dirty = true;
+			field->value.f64 = (double)(field->display_value / field->display_scale);
+		}
+	}
+}
+
+void int64_field_handler(DarttField* field, bool use_native_type)
+{
+	if (use_native_type)
+	{
+		ImGui::InputScalar("##val", ImGuiDataType_S64, &field->value.i64, 0, 0);
+		field->dirty = ImGui::IsItemDeactivatedAfterEdit();
+	}
+	else
+	{
+		field->display_value = ((double)field->value.i64) * field->display_scale;
+		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			field->dirty = true;
+			field->value.i64 = (int64_t)(field->display_value / field->display_scale);
+		}
+	}
+}
+
+void uint64_field_handler(DarttField* field, bool use_native_type)
+{
+	if (use_native_type)
+	{
+		ImGui::InputScalar("##val", ImGuiDataType_U64, &field->value.u64, 0, 0);
+		field->dirty = ImGui::IsItemDeactivatedAfterEdit();
+	}
+	else
+	{
+		field->display_value = ((double)field->value.u64) * field->display_scale;
+		ImGui::InputScalar("###val", ImGuiDataType_Float, &field->display_value, 0, 0, "%f");
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			field->dirty = true;
+			field->value.u64 = (uint64_t)(field->display_value / field->display_scale);
+		}
+	}
+}
 
 // Render a single field's row (called from iterative loop)
 static bool render_single_field(DarttField* field, bool use_native_type) 
@@ -232,32 +351,48 @@ static bool render_single_field(DarttField* field, bool use_native_type)
             case FieldType::INT16:
 			{
 				int16_field_handler(field, use_native_type);
-                break;
+				break;
 			}
             case FieldType::UINT16:
-                ImGui::InputScalar("##val", ImGuiDataType_U16, &field->value.u16, NULL, NULL, "%u");
-                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field->dirty = true; }
-                break;
+			{
+				uint16_field_handler(field, use_native_type);
+				break;
+			}
             case FieldType::INT8:
-                ImGui::InputScalar("##val", ImGuiDataType_S8, &field->value.i8, NULL, NULL, "%d");
-                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field->dirty = true; }
-                break;
+			{
+				int8_field_handler(field, use_native_type);
+				break;
+			}
             case FieldType::UINT8:
-                ImGui::InputScalar("##val", ImGuiDataType_U8, &field->value.u8, NULL, NULL, "%u");
-                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field->dirty = true; }
-                break;
+			{
+				uint8_field_handler(field, use_native_type);
+				break;
+			}
             case FieldType::DOUBLE:
-                ImGui::InputDouble("##val", &field->value.f64, 0, 0, "%.6f");
-                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field->dirty = true; }
-                break;
+			{
+				double_field_handler(field, use_native_type);
+				break;
+			}
             case FieldType::INT64:
-                ImGui::InputScalar("##val", ImGuiDataType_S64, &field->value.i64, NULL, NULL, "%lld");
-                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field->dirty = true; }
-                break;
+			{
+				int64_field_handler(field, use_native_type);
+				break;
+			}
             case FieldType::UINT64:
-                ImGui::InputScalar("##val", ImGuiDataType_U64, &field->value.u64, NULL, NULL, "%llu");
-                if (ImGui::IsItemDeactivatedAfterEdit()) { value_edited = true; field->dirty = true; }
-                break;
+			{
+				uint64_field_handler(field, use_native_type);
+				break;
+			}
+			case FieldType::ENUM:
+			{
+				int32_field_handler(field, use_native_type);
+				break;
+			}
+			case FieldType::POINTER:
+			{
+				uint32_field_handler(field, use_native_type);
+				break;
+			}
             default:
                 ImGui::TextDisabled("???");
                 break;
@@ -310,21 +445,20 @@ static bool render_single_field(DarttField* field, bool use_native_type)
 }
 
 // Render field tree iteratively, returns true if any value was edited
-static bool render_field_tree(DarttField* root) 
+static bool render_field_tree(DarttField* root, bool use_native_type)
 {
     bool any_edited = false;
     std::vector<RenderWork> stack;
 
     stack.push_back({root, false});
 
-    while (!stack.empty()) 
+    while (!stack.empty())
 	{
-
         RenderWork work = stack.back();
         stack.pop_back();
 
         // TreePop marker - just pop and continue
-        if (work.is_tree_pop) 
+        if (work.is_tree_pop)
 		{
             ImGui::TreePop();
             continue;
@@ -333,7 +467,7 @@ static bool render_field_tree(DarttField* root)
         bool is_leaf = work.field->children.empty();
 
         // Render this field's row
-        if (render_single_field(work.field)) 
+        if (render_single_field(work.field, use_native_type))
 		{
             any_edited = true;
         }
@@ -369,9 +503,13 @@ bool render_live_expressions(DarttConfig& config) {
 		save_dartt_config("config.json", config);
 	}
 
+	ImGui::SameLine();
+	static bool use_native_type = true;
+	ImGui::Checkbox("Native Types", &use_native_type);
+
 	ImGui::Separator();
-	
-    // Create table with 3 columns
+
+    // Create table with 4 columns
     ImGuiTableFlags table_flags = ImGuiTableFlags_BordersV
                                 | ImGuiTableFlags_BordersOuterH
                                 | ImGuiTableFlags_Resizable
@@ -388,7 +526,7 @@ bool render_live_expressions(DarttConfig& config) {
         ImGui::TableHeadersRow();
 
         // Render the field tree iteratively
-        if (render_field_tree(&config.root)) {
+        if (render_field_tree(&config.root, use_native_type)) {
             any_edited = true;
         }
 
