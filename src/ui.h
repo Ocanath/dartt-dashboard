@@ -14,13 +14,13 @@ void shutdown_imgui();
 // Returns true if any value was edited (triggers write)
 bool render_live_expressions(DarttConfig& config);
 
-// Helper: recursively set subscribed state on field and all children
-void set_subscribed_recursive(DarttField& field, bool subscribed);
+// Helper: set subscribed state on field and all children (iterative)
+void set_subscribed_all(DarttField* root, bool subscribed);
 
 // Helper: check if any child is subscribed (for mixed state display)
-bool any_child_subscribed(const DarttField& field);
+bool any_child_subscribed(const DarttField* root);
 
 // Helper: check if all children are subscribed
-bool all_children_subscribed(const DarttField& field);
+bool all_children_subscribed(const DarttField* root);
 
 #endif // DARTT_UI_H

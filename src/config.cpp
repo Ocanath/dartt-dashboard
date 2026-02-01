@@ -197,18 +197,23 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
 }
 
 // Main config loader
-bool load_dartt_config(const char* json_path, DarttConfig& config) {
+bool load_dartt_config(const char* json_path, DarttConfig& config) 
+{
     // Open and parse JSON file
     std::ifstream f(json_path);
-    if (!f.is_open()) {
+    if (!f.is_open()) 
+	{
         fprintf(stderr, "Error: Could not open config file: %s\n", json_path);
         return false;
     }
 
     json j;
-    try {
+    try 
+	{
         j = json::parse(f);
-    } catch (const json::parse_error& e) {
+    } 
+	catch (const json::parse_error& e) 
+	{
         fprintf(stderr, "Error: JSON parse error: %s\n", e.what());
         return false;
     }

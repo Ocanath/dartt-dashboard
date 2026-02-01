@@ -40,7 +40,8 @@ int main(int argc, char* argv[])
 	(void)argv;
 
 	// Initialize SDL
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) 
+	{
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		return -1;
 	}
@@ -61,14 +62,17 @@ int main(int argc, char* argv[])
 		1280, 720,
 		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
 	);
-	if (!window) {
+	
+	if (!window) 
+	{
 		printf("Window creation failed: %s\n", SDL_GetError());
 		return -1;
 	}
 
 	// Create GL context
 	SDL_GLContext gl_context = SDL_GL_CreateContext(window);
-	if (!gl_context) {
+	if (!gl_context) 
+	{
 		printf("GL context creation failed: %s\n", SDL_GetError());
 		return -1;
 	}
@@ -76,26 +80,30 @@ int main(int argc, char* argv[])
 	SDL_GL_SetSwapInterval(1); // VSync
 
 	// Initialize ImGui
-	if (!init_imgui(window, gl_context)) {
+	if (!init_imgui(window, gl_context)) 
+	{
 		printf("ImGui initialization failed\n");
 		return -1;
 	}
 
 	// Serial connection
 	int rc = serial.autoconnect(921600);
-	if (rc != true) {
+	if (rc != true) 
+	{
 		printf("Warning - no serial connection made\n");
 	}
 
 	// Load config
 	DarttConfig config;
-	if (!load_dartt_config("config.json", config)) {
+	if (!load_dartt_config("config.json", config)) 
+	{
 		printf("Failed to load config.json\n");
 		// Continue anyway - UI will be empty
 	}
 
 	// Allocate DARTT buffers
-	if (config.nbytes > 0) {
+	if (config.nbytes > 0) 
+	{
 		config.allocate_buffers();
 	}
 
@@ -116,7 +124,8 @@ int main(int argc, char* argv[])
 
 	// Main loop
 	bool running = true;
-	while (running) {
+	while (running)
+	{
 		// Poll events
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) 
