@@ -49,7 +49,7 @@ public:
 	Plotter();
 
 	// Initialize the plotter with dimensions and number of widths for buffer
-	bool init(int width, int height, int n_widths);
+	bool init(int width, int height);
 
 	// Render all lines directly to OpenGL framebuffer
 	void render();

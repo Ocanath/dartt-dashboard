@@ -69,7 +69,7 @@ Plotter::Plotter()
 {
 }
 
-bool Plotter::init(int width, int height, int n_widths)
+bool Plotter::init(int width, int height)
 {
 	if (width <= 0 || height <= 0)
 	{
@@ -78,9 +78,8 @@ bool Plotter::init(int width, int height, int n_widths)
 
 	plot_width = width;
 	plot_height = height;
-	num_widths = n_widths;
-
-	int line_capacity = plot_width * num_widths;
+	
+	int line_capacity = 0;
 
 	// Initialize with one line
 	lines.resize(1);

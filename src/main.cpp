@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 	int width = 0;
 	int height = 0;
 	SDL_GetWindowSize(window, &width, &height);
-	plot.init(width, height, 5);
+	plot.init(width, height);
 	
 	// Serial connection
 	int rc = serial.autoconnect(921600);
@@ -211,14 +211,27 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		
-		plot.lines[0].points[0] = fpoint_t(500-50,500-50);
-		plot.lines[0].points[1] = fpoint_t(500+50, 500-50);
-		plot.lines[0].points[2] = fpoint_t(500+50,500+50);
-		plot.lines[0].points[3] = fpoint_t(500-50, 500+50);
-		plot.lines[0].points[4] = fpoint_t(500-50,500-50);
-		
-		
+		double t = (double)SDL_GetTicks64()/1000.;
+		float x = cos(t)*100;
+		float y = sin(t)*100;
+
+		if(plot.lines[0].points.size() < 5)
+		{
+			plot.lines[0].points.push_back(fpoint_t(500-50 + x, 500-50 + y));
+			plot.lines[0].points.push_back(fpoint_t(500+50 + x, 500-50 + y));
+			plot.lines[0].points.push_back(fpoint_t(500+50 + x,500+50 + y));
+			plot.lines[0].points.push_back(fpoint_t(500-50 + x, 500+50 + y));
+			plot.lines[0].points.push_back(fpoint_t(500-50 + x,500-50 + y));
+		}
+		else
+		{
+			plot.lines[0].points[0] = (fpoint_t(500-50 + x,500-50 + y));
+			plot.lines[0].points[1] = (fpoint_t(500+50 + x, 500-50 + y));
+			plot.lines[0].points[2] = (fpoint_t(500+50 + x,500+50 + y));
+			plot.lines[0].points[3] = (fpoint_t(500-50 + x, 500+50 + y));
+			plot.lines[0].points[4] = (fpoint_t(500-50 + x,500-50 + y));			
+		}
+
 		// Render
 		ImGui::Render();
 		int display_w, display_h;
