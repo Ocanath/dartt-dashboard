@@ -78,6 +78,7 @@ struct DarttField {
         , dirty(false)
         , display_scale(1.0f)
         , expanded(false)
+		, use_display_scale(false)
     {
         value.u64 = 0;
     }
