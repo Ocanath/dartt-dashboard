@@ -12,8 +12,8 @@ struct MemoryRegion {
 
 
 // Build coalesced queues
-std::vector<MemoryRegion> build_write_queue(DarttConfig& config, const std::vector<DarttField*> &leaf_list);
-std::vector<MemoryRegion> build_read_queue(DarttConfig& config, const std::vector<DarttField*> &leaf_list);
+std::vector<MemoryRegion> build_write_queue(DarttConfig& config);
+std::vector<MemoryRegion> build_read_queue(DarttConfig& config);
 
 // Sync values between DarttField.value and flat buffers
 bool sync_fields_to_ctl_buf(DarttConfig& config, const MemoryRegion& region);

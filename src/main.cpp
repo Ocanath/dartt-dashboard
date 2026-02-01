@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
 
 		// WRITE: Send dirty fields to device
 		if (config.ctl_buf.buf && config.periph_buf.buf) {
-			std::vector<MemoryRegion> write_queue = build_write_queue(config, config.leaf_list);
+			std::vector<MemoryRegion> write_queue = build_write_queue(config);
 			for (MemoryRegion& region : write_queue) {
 				sync_fields_to_ctl_buf(config, region);
 
@@ -188,7 +188,7 @@ int main(int argc, char* argv[])
 		// READ: Poll subscribed fields from device
 		if (config.ctl_buf.buf && config.periph_buf.buf)
 		{
-			std::vector<MemoryRegion> read_queue = build_read_queue(config, config.leaf_list);
+			std::vector<MemoryRegion> read_queue = build_read_queue(config);
 			for (MemoryRegion& region : read_queue) 
 			{
 				buffer_t slice = 

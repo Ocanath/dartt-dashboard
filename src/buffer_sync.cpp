@@ -86,17 +86,17 @@ static std::vector<MemoryRegion> coalesce_fields(std::vector<DarttField*>& field
     return regions;
 }
 
-std::vector<MemoryRegion> build_write_queue(DarttConfig& config, const std::vector<DarttField*> &leaf_list) 
+std::vector<MemoryRegion> build_write_queue(DarttConfig& config) 
 {
     std::vector<DarttField*> dirty_fields;
-    collect_dirty_fields(leaf_list, dirty_fields);
+    collect_dirty_fields(config.leaf_list, dirty_fields);
     return coalesce_fields(dirty_fields);
 }
 
-std::vector<MemoryRegion> build_read_queue(DarttConfig& config, const std::vector<DarttField*> &leaf_list) 
+std::vector<MemoryRegion> build_read_queue(DarttConfig& config) 
 {
     std::vector<DarttField*> subscribed_fields;
-    collect_subscribed_fields(leaf_list, subscribed_fields);
+    collect_subscribed_fields(config.leaf_list, subscribed_fields);
     return coalesce_fields(subscribed_fields);
 }
 
