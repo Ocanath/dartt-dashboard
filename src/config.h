@@ -50,7 +50,7 @@ struct DarttField {
     bool expanded;              // tree node expanded in UI
 
 
-	double display_value;	//the True Value, scaled by display scale.
+	float display_value;	//the True Value, scaled by display scale.
 
     // Runtime value storage
     union {
