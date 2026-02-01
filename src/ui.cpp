@@ -443,9 +443,9 @@ static bool render_single_field(DarttField* field, bool show_display_props)
 	if (show_display_props)
 	{
 		ImGui::TableNextColumn();
-		ImGui::InputFloat("##displayscale", &field->display_scale, 0, 0, "%g");
-		ImGui::SameLine();
 		ImGui::Checkbox("##native_type", &field->use_display_scale);
+		ImGui::SameLine();
+		ImGui::InputFloat("##displayscale", &field->display_scale, 0, 0, "%g");
 	}
 	
     ImGui::PopID();

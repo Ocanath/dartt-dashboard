@@ -130,7 +130,8 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
         const json& j = *work.j;
         DarttField& field = *work.field;
 
-        if (work.is_type_info) {
+        if (work.is_type_info) 
+		{
             // Parse as type_info
             if (!j.is_object()) continue;
 
@@ -138,58 +139,74 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
             field.type = parse_field_type(type_str);
             field.nbytes = j.value("size", 0u);
 
-            if (j.contains("typedef")) {
+            if (j.contains("typedef")) 
+			{
                 field.type_name = j["typedef"].get<std::string>();
-            } else {
+            } 
+			else 
+			{
                 field.type_name = type_str;
             }
 
             // Handle struct/union - queue child fields
-            if (type_str == "struct" || type_str == "union") {
-                if (j.contains("fields") && j["fields"].is_array()) {
+            if (type_str == "struct" || type_str == "union") 
+			{
+                if (j.contains("fields") && j["fields"].is_array()) 
+				{
                     const json& fields_array = j["fields"];
                     // Pre-allocate children
                     field.children.resize(fields_array.size());
                     // Push in reverse order so first child is processed first
-                    for (size_t i = fields_array.size(); i > 0; i--) {
+                    for (size_t i = fields_array.size(); i > 0; i--) 
+					{
                         stack.push_back({&fields_array[i-1], &field.children[i-1], false});
                     }
                 }
             }
             // Handle array
-            else if (type_str == "array") {
+            else if (type_str == "array") 
+			{
                 field.array_size = j.value("total_elements", 0u);
-                if (j.contains("element_type")) {
+                if (j.contains("element_type")) 
+				{
                     const json& elem = j["element_type"];
                     field.element_nbytes = elem.value("size", 0u);
 
                     std::string elem_type = elem.value("type", "");
-                    if (elem_type == "struct" || elem_type == "union") {
+                    if (elem_type == "struct" || elem_type == "union") 
+					{
                         // Array of structs - queue element type parsing
                         field.children.resize(1);
                         stack.push_back({&elem, &field.children[0], true});
-                    } else {
+                    } 
+					else 
+					{
                         // Primitive array
                         field.type_name = elem.value("typedef", elem.value("type", "unknown"));
                     }
                 }
             }
-        } else {
+        } 
+		else 
+		{
             // Parse as field (has name, byte_offset, type_info)
             field.name = j.value("name", "");
             field.byte_offset = j.value("byte_offset", 0u);
             field.dartt_offset = j.value("dartt_offset", 0u);
 
             // Parse UI settings if present
-            if (j.contains("ui")) {
+            if (j.contains("ui")) 
+			{
                 const json& ui = j["ui"];
                 field.subscribed = ui.value("subscribed", false);
                 field.expanded = ui.value("expanded", false);
                 field.display_scale = ui.value("display_scale", 1.0f);
+				field.use_display_scale = ui.value("use_display_scale", false);	//may throw error - unsure how this lib call works
             }
 
             // Queue type_info parsing
-            if (j.contains("type_info")) {
+            if (j.contains("type_info")) 
+			{
                 stack.push_back({&j["type_info"], &field, true});
             }
         }
@@ -258,6 +275,7 @@ static void inject_ui_settings_iterative(json& root_json, const std::vector<Dart
         ui["subscribed"] = field.subscribed;
         ui["expanded"] = field.expanded;
         ui["display_scale"] = field.display_scale;
+		ui["use_display_scale"] = field.use_display_scale;
         j["ui"] = ui;
 
         // Queue children if present (structs/unions)
