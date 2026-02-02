@@ -682,8 +682,18 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 	}
 	ImGui::SameLine();
 	ImGui::Text("Add Line");
+	ImGui::SameLine();
+	ImGui::Indent(500);
+	if(ImGui::Button("Clear"))
+	{
+		for(int i = 0; i < plot.lines.size(); i++)
+		{
+			plot.lines[i].points.clear();
+		}
+	}
+	ImGui::Indent(-500);
 	ImGui::Separator();
-
+	
 	int line_to_remove = -1;
 	for (size_t line_idx = 0; line_idx < plot.lines.size(); line_idx++)
 	{
