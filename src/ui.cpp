@@ -704,7 +704,7 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 		// Line header with remove button (right-aligned)
 		char header_label[32];
 		snprintf(header_label, sizeof(header_label), "Line %zu", line_idx);
-		bool open = ImGui::CollapsingHeader(header_label, ImGuiTreeNodeFlags_None);
+		bool open = ImGui::CollapsingHeader(header_label, ImGuiTreeNodeFlags_AllowOverlap);
 		float minus_width = ImGui::CalcTextSize("-").x + ImGui::GetStyle().FramePadding.x * 2;
 		ImGui::SameLine(ImGui::GetWindowWidth() - minus_width - ImGui::GetStyle().WindowPadding.x);
 		if (ImGui::SmallButton("-"))
