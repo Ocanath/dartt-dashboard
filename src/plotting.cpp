@@ -36,27 +36,30 @@ color_t::color_t(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
 Line::Line()
 	: points()
 	, color()
+	, xsource(NULL)
+	, ysource(NULL)
+	, mode(TIME_MODE)
+	, xscale(1.0f)
 {
 }
 
-/*
-TODO: initialize all new member variables
-*/
 Line::Line(int capacity)
 	: points(capacity)
 	, color()
+	, xsource(NULL)
+	, ysource(NULL)
+	, mode(TIME_MODE)
+	, xscale(1.0f)
 {
 }
 
 // Plotter class implementation
-/*
-TODO: initialize all new member variables
- */
 Plotter::Plotter()
 	: window_width(0)
 	, window_height(0)
 	, num_widths(1)
 	, lines()
+	, sys_sec(0.0f)
 {
 }
 
@@ -75,7 +78,7 @@ bool Plotter::init(int width, int height)
 	lines.resize(1);
 	lines[0].points.resize(line_capacity);
 	lines[0].points.clear();
-
+	lines[0].xsource = &sys_sec;
 	return true;
 }
 

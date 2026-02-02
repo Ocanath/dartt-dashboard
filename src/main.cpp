@@ -219,11 +219,11 @@ int main(int argc, char* argv[])
 		
 		for(int i = 0; i < config.leaf_list.size(); i++)
 		{
-			if(config.leaf_list[i]->name == "tick")
-			{
-				tick_sec = config.leaf_list[i]->display_value;
-				plot.lines[0].xsource = &tick_sec;				
-			}
+			// if(config.leaf_list[i]->name == "tick")
+			// {
+			// 	tick_sec = config.leaf_list[i]->display_value;
+			// 	plot.lines[0].xsource = &tick_sec;				
+			// }
 			if(config.leaf_list[i]->name == "theta_rem_m")
 			{
 				pos_deg = config.leaf_list[i]->display_value;
