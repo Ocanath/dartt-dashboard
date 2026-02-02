@@ -682,16 +682,17 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 	}
 	ImGui::SameLine();
 	ImGui::Text("Add Line");
-	ImGui::SameLine();
-	ImGui::Indent(500);
-	if(ImGui::Button("Clear"))
+
+	// Right-align Clear button
+	float clear_width = ImGui::CalcTextSize("Clear").x + ImGui::GetStyle().FramePadding.x * 2;
+	ImGui::SameLine(ImGui::GetWindowWidth() - clear_width - ImGui::GetStyle().WindowPadding.x);
+	if (ImGui::Button("Clear"))
 	{
-		for(int i = 0; i < plot.lines.size(); i++)
+		for (size_t i = 0; i < plot.lines.size(); i++)
 		{
 			plot.lines[i].points.clear();
 		}
 	}
-	ImGui::Indent(-500);
 	ImGui::Separator();
 	
 	int line_to_remove = -1;
@@ -700,9 +701,10 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 		Line& line = plot.lines[line_idx];
 		ImGui::PushID((int)line_idx);
 
-		// Line header with remove button
+		// Line header with remove button (right-aligned)
 		ImGui::Text("Line %zu", line_idx);
-		ImGui::SameLine();
+		float minus_width = ImGui::CalcTextSize("-").x + ImGui::GetStyle().FramePadding.x * 2;
+		ImGui::SameLine(ImGui::GetWindowWidth() - minus_width - ImGui::GetStyle().WindowPadding.x);
 		if (ImGui::SmallButton("-"))
 		{
 			line_to_remove = (int)line_idx;
