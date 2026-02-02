@@ -534,82 +534,83 @@ static bool render_single_field(DarttField* field, bool show_display_props, Plot
 		ImGui::Checkbox("##native_type", &field->use_display_scale);
 		ImGui::SameLine();
 		ImGui::InputFloat("##displayscale", &field->display_scale, 0, 0, "%g");
-	}
 
-	// Plot assignment column (leaves only)
-	ImGui::TableNextColumn();
-	if (is_leaf && field->subscribed)
-	{
-		int current_line = -1;
-		bool current_is_x = false;
-		find_field_assignment(plot, &field->display_value, current_line, current_is_x);
-
-		// Line dropdown: "None", "L0", "L1", ...
-		int line_selection = current_line + 1;  // 0 = None, 1 = L0, etc.
-		ImGui::SetNextItemWidth(50.0f);
-		if (ImGui::BeginCombo("##line", line_selection == 0 ? "None" : ("L" + std::to_string(line_selection - 1)).c_str()))
+		// Plot assignment column (leaves only)
+		ImGui::TableNextColumn();
+		if (is_leaf && field->subscribed)
 		{
-			// "None" option
-			if (ImGui::Selectable("None", line_selection == 0))
+			int current_line = -1;
+			bool current_is_x = false;
+			find_field_assignment(plot, &field->display_value, current_line, current_is_x);
+
+			// Line dropdown: "None", "L0", "L1", ...
+			int line_selection = current_line + 1;  // 0 = None, 1 = L0, etc.
+			ImGui::SetNextItemWidth(50.0f);
+			if (ImGui::BeginCombo("##line", line_selection == 0 ? "None" : ("L" + std::to_string(line_selection - 1)).c_str()))
 			{
-				if (current_line >= 0)
+				// "None" option
+				if (ImGui::Selectable("None", line_selection == 0))
 				{
-					// Clear old assignment
-					if (current_is_x)
-						plot.lines[current_line].xsource = nullptr;
-					else
-						plot.lines[current_line].ysource = nullptr;
-				}
-			}
-			// Line options
-			for (size_t i = 0; i < plot.lines.size(); i++)
-			{
-				char label[8];
-				snprintf(label, sizeof(label), "L%zu", i);
-				if (ImGui::Selectable(label, line_selection == (int)(i + 1)))
-				{
-					// Clear old assignment if any
 					if (current_line >= 0)
 					{
+						// Clear old assignment
 						if (current_is_x)
 							plot.lines[current_line].xsource = nullptr;
 						else
 							plot.lines[current_line].ysource = nullptr;
 					}
-					// Assign to new line (default Y)
-					plot.lines[i].ysource = &field->display_value;
 				}
-			}
-			ImGui::EndCombo();
-		}
-
-		// X/Y dropdown (only if assigned to a line)
-		if (current_line >= 0)
-		{
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(35.0f);
-			const char* axis_label = current_is_x ? "X" : "Y";
-			if (ImGui::BeginCombo("##axis", axis_label))
-			{
-				if (ImGui::Selectable("X", current_is_x))
+				// Line options
+				for (size_t i = 0; i < plot.lines.size(); i++)
 				{
-					if (!current_is_x)
+					char label[8];
+					snprintf(label, sizeof(label), "L%zu", i);
+					if (ImGui::Selectable(label, line_selection == (int)(i + 1)))
 					{
-						plot.lines[current_line].ysource = nullptr;
-						plot.lines[current_line].xsource = &field->display_value;
-					}
-				}
-				if (ImGui::Selectable("Y", !current_is_x))
-				{
-					if (current_is_x)
-					{
-						plot.lines[current_line].xsource = nullptr;
-						plot.lines[current_line].ysource = &field->display_value;
+						// Clear old assignment if any
+						if (current_line >= 0)
+						{
+							if (current_is_x)
+								plot.lines[current_line].xsource = nullptr;
+							else
+								plot.lines[current_line].ysource = nullptr;
+						}
+						// Assign to new line (default Y)
+						plot.lines[i].ysource = &field->display_value;
 					}
 				}
 				ImGui::EndCombo();
 			}
+
+			// X/Y dropdown (only if assigned to a line)
+			if (current_line >= 0)
+			{
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(35.0f);
+				const char* axis_label = current_is_x ? "X" : "Y";
+				if (ImGui::BeginCombo("##axis", axis_label))
+				{
+					if (ImGui::Selectable("X", current_is_x))
+					{
+						if (!current_is_x)
+						{
+							plot.lines[current_line].ysource = nullptr;
+							plot.lines[current_line].xsource = &field->display_value;
+						}
+					}
+					if (ImGui::Selectable("Y", !current_is_x))
+					{
+						if (current_is_x)
+						{
+							plot.lines[current_line].xsource = nullptr;
+							plot.lines[current_line].ysource = &field->display_value;
+						}
+					}
+					ImGui::EndCombo();
+				}
+			}
 		}
+
 	}
 
     ImGui::PopID();
@@ -773,7 +774,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot)
                                 | ImGuiTableFlags_Resizable
                                 | ImGuiTableFlags_RowBg
                                 | ImGuiTableFlags_NoBordersInBody;
-	int num_columns = show_display_props ? 5 : 4;
+	int num_columns = show_display_props ? 6 : 3;
     if (ImGui::BeginTable("fields_table", num_columns, table_flags))
 	{
         // Setup columns
@@ -783,8 +784,8 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot)
 		if (show_display_props)
 		{
 			ImGui::TableSetupColumn("Scale", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+			ImGui::TableSetupColumn("Plot", ImGuiTableColumnFlags_WidthFixed, 100.0f);
 		}
-		ImGui::TableSetupColumn("Plot", ImGuiTableColumnFlags_WidthFixed, 100.0f);
         ImGui::TableHeadersRow();
 
         // Render the field tree iteratively
