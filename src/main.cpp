@@ -213,10 +213,10 @@ int main(int argc, char* argv[])
 		calculate_display_values(config.leaf_list);		
 
 		// Render UI
-		bool value_edited = render_live_expressions(config, plot);
+		bool value_edited = render_live_expressions(config);
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
-		render_plotting_menu(plot, config.subscribed_list);
+		render_plotting_menu(plot, config.root, config.subscribed_list);
 		plot.sys_sec = (float)(((double)SDL_GetTicks64())/1000.);	//outside of class, load the time in sec as timebase for signals that use it as default
 
 		//add new frame of data to each line, as determined by UI

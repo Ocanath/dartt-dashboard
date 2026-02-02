@@ -364,30 +364,8 @@ void uint64_field_handler(DarttField* field)
 	}
 }
 
-// Find which line/axis a field is assigned to (-1 if none)
-static void find_field_assignment(Plotter& plot, float* ptr, int& line_idx, bool& is_x)
-{
-	line_idx = -1;
-	is_x = false;
-	for (size_t i = 0; i < plot.lines.size(); i++)
-	{
-		if (plot.lines[i].xsource == ptr)
-		{
-			line_idx = (int)i;
-			is_x = true;
-			return;
-		}
-		if (plot.lines[i].ysource == ptr)
-		{
-			line_idx = (int)i;
-			is_x = false;
-			return;
-		}
-	}
-}
-
 // Render a single field's row (called from iterative loop)
-static bool render_single_field(DarttField* field, bool show_display_props, Plotter& plot) 
+static bool render_single_field(DarttField* field, bool show_display_props) 
 {
     bool is_leaf = field->children.empty();
 
@@ -535,87 +513,6 @@ static bool render_single_field(DarttField* field, bool show_display_props, Plot
 		ImGui::Checkbox("##native_type", &field->use_display_scale);
 		ImGui::SameLine();
 		ImGui::InputFloat("##displayscale", &field->display_scale, 0, 0, "%g");
-
-		// Plot assignment column (leaves only)
-		ImGui::TableNextColumn();
-		if (is_leaf && field->subscribed)
-		{
-			int current_line = -1;
-			bool current_is_x = false;
-			find_field_assignment(plot, &field->display_value, current_line, current_is_x);
-
-			// Line dropdown: "None", "L0", "L1", ...
-			int line_selection = current_line + 1;  // 0 = None, 1 = L0, etc.
-			ImGui::SetNextItemWidth(50.0f);
-			if (ImGui::BeginCombo("##line", line_selection == 0 ? "None" : ("L" + std::to_string(line_selection - 1)).c_str()))
-			{
-				// "None" option
-				if (ImGui::Selectable("None", line_selection == 0))
-				{
-					if (current_line >= 0)
-					{
-						// Clear old assignment
-						if (current_is_x)
-							plot.lines[current_line].xsource = nullptr;
-						else
-							plot.lines[current_line].ysource = nullptr;
-					}
-				}
-				// Line options
-				for (size_t i = 0; i < plot.lines.size(); i++)
-				{
-					char label[8];
-					snprintf(label, sizeof(label), "L%zu", i);
-					if (ImGui::Selectable(label, line_selection == (int)(i + 1)))
-					{
-						// Clear old assignment if any
-						if (current_line >= 0)
-						{
-							if (current_is_x)
-							{
-								plot.lines[current_line].xsource = nullptr;
-							}
-							else
-							{
-								plot.lines[current_line].ysource = nullptr;
-							}
-						}
-						// Assign to new line (default Y)
-						plot.lines[i].ysource = &field->display_value;
-					}
-				}
-				ImGui::EndCombo();
-			}
-
-			// X/Y dropdown (only if assigned to a line)
-			if (current_line >= 0)
-			{
-				ImGui::SameLine();
-				ImGui::SetNextItemWidth(35.0f);
-				const char* axis_label = current_is_x ? "X" : "Y";
-				if (ImGui::BeginCombo("##axis", axis_label))
-				{
-					if (ImGui::Selectable("X", current_is_x))
-					{
-						if (!current_is_x)
-						{
-							plot.lines[current_line].ysource = nullptr;
-							plot.lines[current_line].xsource = &field->display_value;
-						}
-					}
-					if (ImGui::Selectable("Y", !current_is_x))
-					{
-						if (current_is_x)
-						{
-							plot.lines[current_line].xsource = nullptr;
-							plot.lines[current_line].ysource = &field->display_value;
-						}
-					}
-					ImGui::EndCombo();
-				}
-			}
-		}
-
 	}
 
     ImGui::PopID();
@@ -624,7 +521,7 @@ static bool render_single_field(DarttField* field, bool show_display_props, Plot
 }
 
 // Render field tree iteratively, returns true if any value was edited
-static bool render_field_tree(DarttField* root, bool show_display_props, Plotter& plot)
+static bool render_field_tree(DarttField* root, bool show_display_props)
 {
     bool any_edited = false;
     std::vector<RenderWork> stack;
@@ -646,7 +543,7 @@ static bool render_field_tree(DarttField* root, bool show_display_props, Plotter
         bool is_leaf = work.field->children.empty();
 
         // Render this field's row
-        if (render_single_field(work.field, show_display_props, plot))
+        if (render_single_field(work.field, show_display_props))
 		{
             any_edited = true;
         }
@@ -668,7 +565,77 @@ static bool render_field_tree(DarttField* root, bool show_display_props, Plotter
     return any_edited;
 }
 
-bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscribed_list)
+// Render a tree selector for choosing a DarttField
+// Returns selected field pointer, or nullptr if no selection made
+static DarttField* render_field_selector_tree(DarttField* root)
+{
+	DarttField* selected = nullptr;
+	std::vector<RenderWork> stack;
+	stack.push_back({root, false});
+
+	while (!stack.empty())
+	{
+		RenderWork work = stack.back();
+		stack.pop_back();
+
+		if (work.is_tree_pop)
+		{
+			ImGui::TreePop();
+			continue;
+		}
+
+		DarttField* field = work.field;
+		bool is_leaf = field->children.empty();
+
+		ImGui::PushID(field);
+
+		if (is_leaf)
+		{
+			// Leaf node - selectable if subscribed, grayed out otherwise
+			if (field->subscribed)
+			{
+				if (ImGui::Selectable(field->name.c_str(), false))
+				{
+					selected = field;
+				}
+			}
+			else
+			{
+				ImGui::TextDisabled("%s", field->name.c_str());
+			}
+		}
+		else
+		{
+			// Parent node - expandable tree node
+			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_None;
+			if (field->expanded)
+			{
+				flags |= ImGuiTreeNodeFlags_DefaultOpen;
+			}
+
+			bool node_open = ImGui::TreeNodeEx(field->name.c_str(), flags);
+			field->expanded = node_open;
+
+			if (node_open)
+			{
+				// Push TreePop marker
+				stack.push_back({nullptr, true});
+
+				// Push children in reverse order
+				for (size_t i = field->children.size(); i > 0; i--)
+				{
+					stack.push_back({&field->children[i - 1], false});
+				}
+			}
+		}
+
+		ImGui::PopID();
+	}
+
+	return selected;
+}
+
+bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<DarttField*> &subscribed_list)
 {
 	ImGui::Begin("Plot Settings");
 
@@ -679,6 +646,7 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 		plot.lines.back().xsource = &plot.sys_sec;
 		int color_index = (plot.lines.size() % NUM_COLORS);
 		plot.lines.back().color = template_colors[color_index];
+		//consider automatic "Clear" here - will look more professional (and it's really easy to implement), but does wipe data
 	}
 	ImGui::SameLine();
 	ImGui::Text("Add Line");
@@ -735,30 +703,40 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 			line.mode = XY_MODE;
 		}
 
-		// Display current X source
+		// X source combo with tree selector
 		ImGui::Text("X Source:");
 		ImGui::SameLine();
+		const char* x_preview = "None";
 		if (line.xsource == &plot.sys_sec)
 		{
-			ImGui::Text("sys_sec");
+			x_preview = "sys_sec";
 		}
 		else if (line.xsource != nullptr)
 		{
 			// Find field name by pointer
-			const char* name = nullptr;
 			for (size_t i = 0; i < subscribed_list.size(); i++)
 			{
 				if (&subscribed_list[i]->display_value == line.xsource)
 				{
-					name = subscribed_list[i]->name.c_str();
+					x_preview = subscribed_list[i]->name.c_str();
 					break;
 				}
 			}
-			ImGui::Text("%s", name ? name : "(field)");
 		}
-		else
+		ImGui::SetNextItemWidth(150.0f);
+		if (ImGui::BeginCombo("##xsrc", x_preview))
 		{
-			ImGui::TextDisabled("None");
+			if (ImGui::Selectable("sys_sec", line.xsource == &plot.sys_sec))
+			{
+				line.xsource = &plot.sys_sec;
+			}
+			ImGui::Separator();
+			DarttField* selected = render_field_selector_tree(&root);
+			if (selected)
+			{
+				line.xsource = &selected->display_value;
+			}
+			ImGui::EndCombo();
 		}
 		
 		if(line.mode == XY_MODE)
@@ -775,25 +753,30 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 			ImGui::InputFloat("##xoffset", &line.xoffset, 0, 0, "%.2f");
 		}
 
-		// Display current Y source
+		// Y source combo with tree selector
 		ImGui::Text("Y Source:");
 		ImGui::SameLine();
+		const char* y_preview = "None";
 		if (line.ysource != nullptr)
 		{
-			const char* name = nullptr;
 			for (size_t i = 0; i < subscribed_list.size(); i++)
 			{
 				if (&subscribed_list[i]->display_value == line.ysource)
 				{
-					name = subscribed_list[i]->name.c_str();
+					y_preview = subscribed_list[i]->name.c_str();
 					break;
 				}
 			}
-			ImGui::Text("%s", name ? name : "(field)");
 		}
-		else
+		ImGui::SetNextItemWidth(150.0f);
+		if (ImGui::BeginCombo("##ysrc", y_preview))
 		{
-			ImGui::TextDisabled("None");
+			DarttField* selected = render_field_selector_tree(&root);
+			if (selected)
+			{
+				line.ysource = &selected->display_value;
+			}
+			ImGui::EndCombo();
 		}
 		ImGui::SameLine();
 		ImGui::Text("Yscale:");
@@ -820,7 +803,7 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 	return true;
 }
 
-bool render_live_expressions(DarttConfig& config, Plotter& plot)
+bool render_live_expressions(DarttConfig& config)
 {
     bool any_edited = false;
 
@@ -847,7 +830,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot)
                                 | ImGuiTableFlags_Resizable
                                 | ImGuiTableFlags_RowBg
                                 | ImGuiTableFlags_NoBordersInBody;
-	int num_columns = show_display_props ? 6 : 3;
+	int num_columns = show_display_props ? 4 : 3;
     if (ImGui::BeginTable("fields_table", num_columns, table_flags))
 	{
         // Setup columns
@@ -857,12 +840,11 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot)
 		if (show_display_props)
 		{
 			ImGui::TableSetupColumn("Scale", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-			ImGui::TableSetupColumn("Plot", ImGuiTableColumnFlags_WidthFixed, 100.0f);
 		}
         ImGui::TableHeadersRow();
 
         // Render the field tree iteratively
-        if (render_field_tree(&config.root, show_display_props, plot)) {
+        if (render_field_tree(&config.root, show_display_props)) {
             any_edited = true;
         }
 
