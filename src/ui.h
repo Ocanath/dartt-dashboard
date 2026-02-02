@@ -13,7 +13,7 @@ void shutdown_imgui();
 
 // Render the live expressions panel
 // Returns true if any value was edited (triggers write)
-bool render_live_expressions(DarttConfig& config);
+bool render_live_expressions(DarttConfig& config, Plotter& plot);
 
 
 bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscribed_list);

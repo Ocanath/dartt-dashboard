@@ -213,7 +213,7 @@ int main(int argc, char* argv[])
 		calculate_display_values(config.leaf_list);		
 
 		// Render UI
-		bool value_edited = render_live_expressions(config);
+		bool value_edited = render_live_expressions(config, plot);
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
 		render_plotting_menu(plot, config.subscribed_list);
