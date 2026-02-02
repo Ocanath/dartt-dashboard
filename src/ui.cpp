@@ -702,14 +702,21 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 		ImGui::PushID((int)line_idx);
 
 		// Line header with remove button (right-aligned)
-		ImGui::Text("Line %zu", line_idx);
+		char header_label[32];
+		snprintf(header_label, sizeof(header_label), "Line %zu", line_idx);
+		bool open = ImGui::CollapsingHeader(header_label, ImGuiTreeNodeFlags_None);
 		float minus_width = ImGui::CalcTextSize("-").x + ImGui::GetStyle().FramePadding.x * 2;
 		ImGui::SameLine(ImGui::GetWindowWidth() - minus_width - ImGui::GetStyle().WindowPadding.x);
 		if (ImGui::SmallButton("-"))
 		{
 			line_to_remove = (int)line_idx;
 		}
-		ImGui::Separator();
+
+		if (!open)
+		{
+			ImGui::PopID();
+			continue;
+		}
 
 		// Mode selection via radio buttons
 		int mode = (int)line.mode;
