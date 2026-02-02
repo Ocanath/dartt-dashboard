@@ -6,7 +6,9 @@
 #include <cstdio>
 #include <vector>
 
-bool init_imgui(SDL_Window* window, SDL_GLContext gl_context) {
+
+bool init_imgui(SDL_Window* window, SDL_GLContext gl_context) 
+{
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -14,12 +16,14 @@ bool init_imgui(SDL_Window* window, SDL_GLContext gl_context) {
 
     ImGui::StyleColorsDark();
 
-    if (!ImGui_ImplSDL2_InitForOpenGL(window, gl_context)) {
+    if (!ImGui_ImplSDL2_InitForOpenGL(window, gl_context)) 
+	{
         fprintf(stderr, "Failed to init ImGui SDL2 backend\n");
         return false;
     }
 
-    if (!ImGui_ImplOpenGL3_Init("#version 130")) {
+    if (!ImGui_ImplOpenGL3_Init("#version 130")) 
+	{
         fprintf(stderr, "Failed to init ImGui OpenGL3 backend\n");
         return false;
     }
@@ -27,29 +31,34 @@ bool init_imgui(SDL_Window* window, SDL_GLContext gl_context) {
     return true;
 }
 
-void shutdown_imgui() {
+void shutdown_imgui() 
+{
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 }
 
-void set_subscribed_all(DarttField* root, bool subscribed) {
+void set_subscribed_all(DarttField* root, bool subscribed) 
+{
     std::vector<DarttField*> stack;
     stack.push_back(root);
 
-    while (!stack.empty()) {
+    while (!stack.empty()) 
+	{
         DarttField* field = stack.back();
         stack.pop_back();
 
         field->subscribed = subscribed;
 
-        for (size_t i = 0; i < field->children.size(); i++) {
+        for (size_t i = 0; i < field->children.size(); i++) 
+		{
             stack.push_back(&field->children[i]);
         }
     }
 }
 
-bool any_child_subscribed(const DarttField* root) {
+bool any_child_subscribed(const DarttField* root) 
+{
     std::vector<const DarttField*> stack;
     stack.push_back(root);
 
@@ -91,7 +100,8 @@ bool all_children_subscribed(const DarttField* root) {
 }
 
 // Work item for iterative field rendering
-struct RenderWork {
+struct RenderWork 
+{
     DarttField* field;
     bool is_tree_pop;  // true = just call TreePop(), no rendering
 };
@@ -553,7 +563,16 @@ static bool render_field_tree(DarttField* root, bool show_display_props)
     return any_edited;
 }
 
-bool render_live_expressions(DarttConfig& config) {
+bool render_plotting_menu(Plotter &plot)
+{
+	ImGui::Begin("Plot Settings");
+	
+	ImGui::End();
+	return true;
+}
+
+bool render_live_expressions(DarttConfig& config) 
+{
     bool any_edited = false;
 
     ImGui::Begin("Live Expressions");

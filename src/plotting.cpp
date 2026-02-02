@@ -39,28 +39,19 @@ Line::Line()
 {
 }
 
+/*
+TODO: initialize all new member variables
+*/
 Line::Line(int capacity)
 	: points(capacity)
 	, color()
 {
 }
 
-void Line::resize(int capacity)
-{
-	points.resize(capacity);
-}
-
-int Line::size()
-{
-	return (int)points.size();
-}
-
-fpoint_t* Line::data()
-{
-	return points.data();
-}
-
 // Plotter class implementation
+/*
+TODO: initialize all new member variables
+ */
 Plotter::Plotter()
 	: window_width(0)
 	, window_height(0)
@@ -78,14 +69,13 @@ bool Plotter::init(int width, int height)
 
 	window_width = width;
 	window_height = height;
-	xscale = 1;
 	int line_capacity = 0;
 
 	// Initialize with one line
 	lines.resize(1);
-	lines[0].resize(line_capacity);
+	lines[0].points.resize(line_capacity);
 	lines[0].points.clear();
-	
+
 	return true;
 }
 
@@ -105,7 +95,7 @@ void Plotter::render()
 	for (int i = 0; i < (int)lines.size(); i++)
 	{
 		Line* line = &lines[i];
-		int num_points = line->size();
+		int num_points = line->points.size();
 
 		if (num_points < 2)
 		{
@@ -116,7 +106,7 @@ void Plotter::render()
 		glBegin(GL_LINE_STRIP);
 		for (int j = 0; j < num_points; j++)
 		{
-			int x = (int)( (line->points[j].x - line->points.front().x) *xscale);
+			int x = (int)( (line->points[j].x - line->points.front().x) * line->xscale);
 			int y = (int)(line->points[j].y + (float)window_height/2.f);
 			glVertex2f(x, y);
 		}
@@ -128,4 +118,42 @@ void Plotter::render()
 	glPopMatrix();
 	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
+}
+
+
+
+bool Line::enqueue_data(int enqueue_cap, int screen_width)
+{
+	if(xsource == NULL || ysource == NULL)
+	{
+		return false;	//fail due to bad pointer reference
+	}
+	//enqueue data
+	if(points.size() < enqueue_cap)	//cap on buffer width - may want to expand
+	{
+		points.push_back(fpoint_t(*xsource, *ysource));
+	}	
+	else
+	{
+		std::rotate(points.begin(), points.begin() + 1, points.end());
+		points.back() = fpoint_t(*xsource, *ysource);
+	}	
+
+	if(mode == TIME_MODE)
+	{
+		//THEN calculate xscale based on current buffer state
+		if(points.size() >= 2)
+		{
+			float div = points.back().x - points.front().x;
+			if(div > 0)
+			{
+				xscale = screen_width/div;
+			}
+			else if(div < 0) //decreasing time
+			{
+				points.clear();	//this just sets size=0 - can preallocate and clear for speed
+			}	
+		}	
+	}
+	return true;
 }

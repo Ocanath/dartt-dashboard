@@ -3,6 +3,7 @@
 
 #include <SDL.h>
 #include "config.h"
+#include "plotting.h"
 
 // Initialize ImGui (call after SDL/OpenGL setup)
 bool init_imgui(SDL_Window* window, SDL_GLContext gl_context);
@@ -13,6 +14,9 @@ void shutdown_imgui();
 // Render the live expressions panel
 // Returns true if any value was edited (triggers write)
 bool render_live_expressions(DarttConfig& config);
+
+
+bool render_plotting_menu(Plotter &plot);
 
 // Helper: set subscribed state on field and all children (iterative)
 void set_subscribed_all(DarttField* root, bool subscribed);

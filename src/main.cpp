@@ -211,53 +211,30 @@ int main(int argc, char* argv[])
 		// Render UI
 		bool value_edited = render_live_expressions(config);
 
+		render_plotting_menu(plot);
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out 
 		float tick_sec = 0;
 		float pos_deg = 0;
-		int values_obtained = 0;
+		
 		for(int i = 0; i < config.leaf_list.size(); i++)
 		{
 			if(config.leaf_list[i]->name == "tick")
 			{
 				tick_sec = config.leaf_list[i]->display_value;
-				values_obtained++;
+				plot.lines[0].xsource = &tick_sec;				
 			}
 			if(config.leaf_list[i]->name == "theta_rem_m")
 			{
 				pos_deg = config.leaf_list[i]->display_value;
-				values_obtained++;
+				plot.lines[0].ysource = &pos_deg;
 			}
 		}
-		if(values_obtained == 2)
-		{
-			//enqueue data
-			if(plot.lines[0].points.size() < width)	//cap on buffer width - may want to expand
-			{
-				plot.lines[0].points.push_back(fpoint_t(tick_sec, pos_deg));
-			}	
-			else
-			{
-				std::rotate(plot.lines[0].points.begin(), plot.lines[0].points.begin() + 1, plot.lines[0].points.end());
-				plot.lines[0].points.back() = fpoint_t(tick_sec, pos_deg);
-			}		
+		
+		//outside of class, load the time in sec as timebase for signals that use it as default
+		plot.sys_sec = (float)(((double)SDL_GetTicks64())/1000.);
 
-			//THEN calculate xscale based on current buffer state
-			if(plot.lines[0].points.size() >= 2)
-			{
-				float div = plot.lines[0].points.back().x - plot.lines[0].points.front().x;
-				if(div > 0)
-				{
-					plot.xscale = ((float)plot.window_width)/div;
-				}
-				else if(div < 0) //decreasing time
-				{
-
-					plot.lines[0].points.clear();	//this just sets size=0 - can preallocate and clear for speed
-				}	
-			}
-
-		}
+		plot.lines[0].enqueue_data(plot.window_width, plot.window_width);
 
 		// Render
 		ImGui::Render();
@@ -266,7 +243,7 @@ int main(int argc, char* argv[])
 		glViewport(0, 0, display_w, display_h);
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-		plot.render();
+		plot.render();	//must position here
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		SDL_GL_SwapWindow(window);
