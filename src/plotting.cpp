@@ -31,6 +31,7 @@ Line::Line()
 	color.r = 0;
 	color.g = 0;
 	color.b = 0;
+	color.a = 0xFF;
 }
 
 Line::Line(int capacity)
@@ -110,7 +111,7 @@ void Plotter::render()
 			continue;
 		}
 
-		glColor4ub(line->color.r, line->color.g, line->color.b, 255);	//always use alpha=255
+		glColor4ub(line->color.r, line->color.g, line->color.b, line->color.a);	
 		glBegin(GL_LINE_STRIP);
 		for (int j = 0; j < num_points; j++)
 		{
