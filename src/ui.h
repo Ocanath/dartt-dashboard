@@ -16,7 +16,7 @@ void shutdown_imgui();
 bool render_live_expressions(DarttConfig& config);
 
 
-bool render_plotting_menu(Plotter &plot);
+bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscribed_list);
 
 // Helper: set subscribed state on field and all children (iterative)
 void set_subscribed_all(DarttField* root, bool subscribed);

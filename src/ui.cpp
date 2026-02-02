@@ -563,10 +563,111 @@ static bool render_field_tree(DarttField* root, bool show_display_props)
     return any_edited;
 }
 
-bool render_plotting_menu(Plotter &plot)
+// Helper to find field name by display_value pointer
+static const char* find_field_name(const std::vector<DarttField*> &subscribed_list, float* ptr)
+{
+	for (size_t i = 0; i < subscribed_list.size(); i++)
+	{
+		if (&subscribed_list[i]->display_value == ptr)
+		{
+			return subscribed_list[i]->name.c_str();
+		}
+	}
+	return nullptr;
+}
+
+bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscribed_list)
 {
 	ImGui::Begin("Plot Settings");
-	
+
+	for (size_t line_idx = 0; line_idx < plot.lines.size(); line_idx++)
+	{
+		Line& line = plot.lines[line_idx];
+		ImGui::PushID((int)line_idx);
+
+		ImGui::Text("Line %zu", line_idx);
+		ImGui::Separator();
+
+		// Mode selection via radio buttons
+		int mode = (int)line.mode;
+		if (ImGui::RadioButton("Time Mode", &mode, TIME_MODE))
+		{
+			line.mode = TIME_MODE;
+			line.xsource = &plot.sys_sec;
+		}
+		ImGui::SameLine();
+		if (ImGui::RadioButton("XY Mode", &mode, XY_MODE))
+		{
+			line.mode = XY_MODE;
+		}
+
+		// X source selection
+		ImGui::Text("X Source:");
+		ImGui::SameLine();
+		if (line.mode == TIME_MODE)
+		{
+			ImGui::TextDisabled("sys_sec (auto)");
+			line.xsource = &plot.sys_sec;
+		}
+		else
+		{
+			// XY mode: combo from subscribed_list
+			const char* x_preview = find_field_name(subscribed_list, line.xsource);
+			if (x_preview == nullptr)
+			{
+				x_preview = "None";
+			}
+
+			if (ImGui::BeginCombo("##xsource", x_preview))
+			{
+				for (size_t i = 0; i < subscribed_list.size(); i++)
+				{
+					DarttField* field = subscribed_list[i];
+					bool is_selected = (line.xsource == &field->display_value);
+					if (ImGui::Selectable(field->name.c_str(), is_selected))
+					{
+						line.xsource = &field->display_value;
+					}
+					if (is_selected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
+		}
+
+		// Y source selection
+		ImGui::Text("Y Source:");
+		ImGui::SameLine();
+		const char* y_preview = find_field_name(subscribed_list, line.ysource);
+		if (y_preview == nullptr)
+		{
+			y_preview = "None";
+		}
+
+		if (ImGui::BeginCombo("##ysource", y_preview))
+		{
+			for (size_t i = 0; i < subscribed_list.size(); i++)
+			{
+				DarttField* field = subscribed_list[i];
+				bool is_selected = (line.ysource == &field->display_value);
+				if (ImGui::Selectable(field->name.c_str(), is_selected))
+				{
+					line.ysource = &field->display_value;
+				}
+				if (is_selected)
+				{
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		ImGui::Spacing();
+		ImGui::PopID();
+	}
+
 	ImGui::End();
 	return true;
 }

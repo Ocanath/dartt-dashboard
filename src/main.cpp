@@ -158,6 +158,10 @@ int main(int argc, char* argv[])
 		ImGui::NewFrame();
 		
 
+		// Rebuild subscribed and dirty lists before read/write operations
+		collect_subscribed_fields(config.leaf_list, config.subscribed_list);
+		collect_dirty_fields(config.leaf_list, config.dirty_list);
+
 		// WRITE: Send dirty fields to device
 		if (config.ctl_buf.buf && config.periph_buf.buf) {
 			std::vector<MemoryRegion> write_queue = build_write_queue(config);
@@ -211,29 +215,11 @@ int main(int argc, char* argv[])
 		// Render UI
 		bool value_edited = render_live_expressions(config);
 
-		render_plotting_menu(plot);
+		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
+		render_plotting_menu(plot, config.subscribed_list);
+		plot.sys_sec = (float)(((double)SDL_GetTicks64())/1000.);	//outside of class, load the time in sec as timebase for signals that use it as default
 
-		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out 
-		float tick_sec = 0;
-		float pos_deg = 0;
-		
-		for(int i = 0; i < config.leaf_list.size(); i++)
-		{
-			// if(config.leaf_list[i]->name == "tick")
-			// {
-			// 	tick_sec = config.leaf_list[i]->display_value;
-			// 	plot.lines[0].xsource = &tick_sec;				
-			// }
-			if(config.leaf_list[i]->name == "theta_rem_m")
-			{
-				pos_deg = config.leaf_list[i]->display_value;
-				plot.lines[0].ysource = &pos_deg;
-			}
-		}
-		
-		//outside of class, load the time in sec as timebase for signals that use it as default
-		plot.sys_sec = (float)(((double)SDL_GetTicks64())/1000.);
-
+		//add new frame of data to each line, as determined by UI
 		plot.lines[0].enqueue_data(plot.window_width, plot.window_width);
 
 		// Render

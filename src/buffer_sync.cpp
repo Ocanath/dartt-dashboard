@@ -6,12 +6,13 @@
 
 
 // Collect all dirty leaf fields
-static void collect_dirty_fields(const std::vector<DarttField*> &leaf_list, std::vector<DarttField*>& out) 
+void collect_dirty_fields(const std::vector<DarttField*> &leaf_list, std::vector<DarttField*>& out)
 {
+	out.clear();
 	for(size_t i = 0; i < leaf_list.size(); i++)
 	{
 		DarttField * leaf = leaf_list[i];
-		if (leaf->dirty) 
+		if (leaf->dirty)
 		{
 			out.push_back(leaf);
 		}
@@ -19,12 +20,13 @@ static void collect_dirty_fields(const std::vector<DarttField*> &leaf_list, std:
 }
 
 // Collect all subscribed leaf fields
-static void collect_subscribed_fields(const std::vector<DarttField*> &leaf_list, std::vector<DarttField*>& out) 
+void collect_subscribed_fields(const std::vector<DarttField*> &leaf_list, std::vector<DarttField*>& out)
 {
+	out.clear();
 	for(size_t i = 0; i < leaf_list.size(); i++)
 	{
 		DarttField * leaf = leaf_list[i];
-		if (leaf->subscribed) 
+		if (leaf->subscribed)
 		{
 			out.push_back(leaf);
 		}
@@ -86,18 +88,14 @@ static std::vector<MemoryRegion> coalesce_fields(std::vector<DarttField*>& field
     return regions;
 }
 
-std::vector<MemoryRegion> build_write_queue(DarttConfig& config) 
+std::vector<MemoryRegion> build_write_queue(DarttConfig& config)
 {
-    std::vector<DarttField*> dirty_fields;
-    collect_dirty_fields(config.leaf_list, dirty_fields);
-    return coalesce_fields(dirty_fields);
+    return coalesce_fields(config.dirty_list);
 }
 
-std::vector<MemoryRegion> build_read_queue(DarttConfig& config) 
+std::vector<MemoryRegion> build_read_queue(DarttConfig& config)
 {
-    std::vector<DarttField*> subscribed_fields;
-    collect_subscribed_fields(config.leaf_list, subscribed_fields);
-    return coalesce_fields(subscribed_fields);
+    return coalesce_fields(config.subscribed_list);
 }
 
 bool sync_fields_to_ctl_buf(DarttConfig& config, const MemoryRegion& region) 

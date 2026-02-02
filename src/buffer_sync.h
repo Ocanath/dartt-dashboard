@@ -11,6 +11,10 @@ struct MemoryRegion {
 };
 
 
+// Collect subscribed/dirty fields into output vectors
+void collect_subscribed_fields(const std::vector<DarttField*> &leaf_list, std::vector<DarttField*>& out);
+void collect_dirty_fields(const std::vector<DarttField*> &leaf_list, std::vector<DarttField*>& out);
+
 // Build coalesced queues
 std::vector<MemoryRegion> build_write_queue(DarttConfig& config);
 std::vector<MemoryRegion> build_read_queue(DarttConfig& config);

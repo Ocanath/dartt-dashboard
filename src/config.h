@@ -102,6 +102,8 @@ struct DarttConfig {
 
 	//A flat list of the leaves - for easy access, loaded with the initialization from file
 	std::vector<DarttField*> leaf_list;
+	std::vector<DarttField*> subscribed_list;  // subscribed leaves only
+	std::vector<DarttField*> dirty_list;       // dirty leaves only
 	
     DarttConfig()
         : address(0)
