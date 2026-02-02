@@ -152,9 +152,14 @@ bool load_dartt_config(const char* json_path, DarttConfig& config);
 // Collect a list of all leaves
 void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list);
 
+// Forward declaration for Plotter
+class Plotter;
+
 // Save config to JSON file (preserves UI settings)
+// If plot is provided, also saves plotting config
 // Returns true on success, false on error (error message printed to stderr)
-bool save_dartt_config(const char* json_path, const DarttConfig& config);
+bool save_dartt_config(const char* json_path, const DarttConfig& config,
+    const Plotter* plot = nullptr, float* sys_sec_ptr = nullptr);
 
 // Helper: get FieldType from type string
 FieldType parse_field_type(const std::string& type_str);
@@ -164,5 +169,14 @@ bool is_primitive_type(FieldType type);
 
 // Helper: get display string for a field's value
 std::string format_field_value(const DarttField& field);
+
+// Find field by byte_offset and name (both must match)
+DarttField* find_field_by_offset_and_name(
+    const std::vector<DarttField*>& leaf_list,
+    int32_t byte_offset,
+    const std::string& name);
+
+// Note: save_plotting_config and load_plotting_config are declared in config.cpp
+// and use nlohmann::json directly. Call them from files that include nlohmann/json.hpp.
 
 #endif // DARTT_CONFIG_H

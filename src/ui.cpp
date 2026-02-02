@@ -789,6 +789,18 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		ImGui::SetNextItemWidth(60.0f);
 		ImGui::InputFloat("##yoffset", &line.yoffset, 0, 0, "%.2f");
 
+		// Color picker
+		ImGui::Text("Color:");
+		ImGui::SameLine();
+		float col[4] = {line.color.r/255.f, line.color.g/255.f, line.color.b/255.f, line.color.a/255.f};
+		if (ImGui::ColorEdit4("##color", col, ImGuiColorEditFlags_NoInputs))
+		{
+			line.color.r = (uint8_t)(col[0] * 255);
+			line.color.g = (uint8_t)(col[1] * 255);
+			line.color.b = (uint8_t)(col[2] * 255);
+			line.color.a = (uint8_t)(col[3] * 255);
+		}
+
 		ImGui::Spacing();
 		ImGui::PopID();
 	}
@@ -803,7 +815,7 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 	return true;
 }
 
-bool render_live_expressions(DarttConfig& config)
+bool render_live_expressions(DarttConfig& config, Plotter& plot)
 {
     bool any_edited = false;
 
@@ -815,7 +827,7 @@ bool render_live_expressions(DarttConfig& config)
     bool save_clicked = ImGui::Button("Save");
 	if(save_clicked)
 	{
-		save_dartt_config("config.json", config);
+		save_dartt_config("config.json", config, &plot, &plot.sys_sec);
 	}
 
 	ImGui::SameLine();

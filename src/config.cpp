@@ -1,4 +1,5 @@
 #include "config.h"
+#include "plotting.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <cstdio>
@@ -316,8 +317,101 @@ static void inject_ui_settings_iterative(json& root_json, const std::vector<Dart
     }
 }
 
+// Save plotting config to JSON
+void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttField*>& leaf_list, float* sys_sec_ptr)
+{
+    json plotting;
+    json lines_json = json::array();
+
+    for (size_t i = 0; i < plot.lines.size(); i++)
+    {
+        const Line& line = plot.lines[i];
+        json line_json;
+
+        line_json["mode"] = (int)line.mode;
+
+        // X source data
+        json xsource_data;
+        if (line.xsource == sys_sec_ptr)
+        {
+            xsource_data["byte_offset"] = -1;
+            xsource_data["name"] = "sys_sec";
+        }
+        else if (line.xsource == nullptr)
+        {
+            xsource_data["byte_offset"] = -2;
+            xsource_data["name"] = "none";
+        }
+        else
+        {
+            // Find field in leaf_list
+            bool found = false;
+            for (size_t k = 0; k < leaf_list.size(); k++)
+            {
+                if (&leaf_list[k]->display_value == line.xsource)
+                {
+                    xsource_data["byte_offset"] = (int32_t)leaf_list[k]->byte_offset;
+                    xsource_data["name"] = leaf_list[k]->name;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                xsource_data["byte_offset"] = -2;
+                xsource_data["name"] = "none";
+            }
+        }
+        line_json["xsource_data"] = xsource_data;
+
+        // Y source data
+        json ysource_data;
+        if (line.ysource == nullptr)
+        {
+            ysource_data["byte_offset"] = -2;
+            ysource_data["name"] = "none";
+        }
+        else
+        {
+            bool found = false;
+            for (size_t k = 0; k < leaf_list.size(); k++)
+            {
+                if (&leaf_list[k]->display_value == line.ysource)
+                {
+                    ysource_data["byte_offset"] = (int32_t)leaf_list[k]->byte_offset;
+                    ysource_data["name"] = leaf_list[k]->name;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                ysource_data["byte_offset"] = -2;
+                ysource_data["name"] = "none";
+            }
+        }
+        line_json["ysource_data"] = ysource_data;
+
+        // Color
+        line_json["color"] = {line.color.r, line.color.g, line.color.b, line.color.a};
+
+        // Scales and offsets
+        line_json["xscale"] = line.xscale;
+        line_json["xoffset"] = line.xoffset;
+        line_json["yscale"] = line.yscale;
+        line_json["yoffset"] = line.yoffset;
+
+        lines_json.push_back(line_json);
+    }
+
+    plotting["lines"] = lines_json;
+    j["plotting"] = plotting;
+}
+
 // Save config to JSON file (only adds ui objects, preserves everything else)
-bool save_dartt_config(const char* json_path, const DarttConfig& config) {
+// If plot is provided, also saves plotting config
+bool save_dartt_config(const char* json_path, const DarttConfig& config,
+    const Plotter* plot, float* sys_sec_ptr) {
     // Read original JSON
     std::ifstream f_in(json_path);
     if (!f_in.is_open()) {
@@ -339,6 +433,12 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config) {
         inject_ui_settings_iterative(j["type"]["fields"], config.root.children);
     }
 
+    // Save plotting config if plotter provided
+    if (plot != nullptr) 
+	{
+        save_plotting_config(j, *plot, config.leaf_list, sys_sec_ptr);
+    }
+
     // Write back
     std::ofstream f_out(json_path);
     if (!f_out.is_open()) {
@@ -353,4 +453,136 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config) {
     return true;
 }
 
+// Find field by byte_offset and name (both must match)
+DarttField* find_field_by_offset_and_name(
+    const std::vector<DarttField*>& leaf_list,
+    int32_t byte_offset,
+    const std::string& name)
+{
+    for (size_t i = 0; i < leaf_list.size(); i++)
+    {
+        if ((int32_t)leaf_list[i]->byte_offset == byte_offset &&
+            leaf_list[i]->name == name)
+        {
+            return leaf_list[i];
+        }
+    }
+    return nullptr;
+}
+
+
+// Load plotting config from JSON
+void load_plotting_config(const json& j, Plotter& plot,
+    const std::vector<DarttField*>& leaf_list, float* sys_sec_ptr)
+{
+    if (!j.contains("plotting"))
+    {
+        printf("No plotting config found, using defaults\n");
+        return;
+    }
+
+    const json& plotting = j["plotting"];
+    if (!plotting.contains("lines") || !plotting["lines"].is_array())
+    {
+        printf("No lines array in plotting config\n");
+        return;
+    }
+
+    plot.lines.clear();
+    const json& lines_json = plotting["lines"];
+
+    for (size_t i = 0; i < lines_json.size(); i++)
+    {
+        const json& line_json = lines_json[i];
+        Line line;
+
+        // Mode
+        line.mode = (timemode_t)line_json.value("mode", 0);
+
+        // X source
+        if (line_json.contains("xsource_data"))
+        {
+            const json& xdata = line_json["xsource_data"];
+            int32_t offset = xdata.value("byte_offset", -2);
+            std::string name = xdata.value("name", "none");
+
+            if (offset == -1 && name == "sys_sec")
+            {
+                line.xsource = sys_sec_ptr;
+            }
+            else if (offset == -2 || name == "none")
+            {
+                line.xsource = nullptr;
+            }
+            else
+            {
+                DarttField* field = find_field_by_offset_and_name(leaf_list, offset, name);
+                if (field)
+                {
+                    line.xsource = &field->display_value;
+                }
+                else
+                {
+                    printf("Warning: Could not find xsource field '%s' at offset %d, defaulting to sys_sec\n",
+                           name.c_str(), offset);
+                    line.xsource = sys_sec_ptr;
+                }
+            }
+        }
+        else
+        {
+            line.xsource = sys_sec_ptr;
+        }
+
+        // Y source
+        if (line_json.contains("ysource_data"))
+        {
+            const json& ydata = line_json["ysource_data"];
+            int32_t offset = ydata.value("byte_offset", -2);
+            std::string name = ydata.value("name", "none");
+
+            if (offset == -2 || name == "none")
+            {
+                line.ysource = nullptr;
+            }
+            else
+            {
+                DarttField* field = find_field_by_offset_and_name(leaf_list, offset, name);
+                if (field)
+                {
+                    line.ysource = &field->display_value;
+                }
+                else
+                {
+                    printf("Warning: Could not find ysource field '%s' at offset %d, defaulting to none\n",
+                           name.c_str(), offset);
+                    line.ysource = nullptr;
+                }
+            }
+        }
+        else
+        {
+            line.ysource = nullptr;
+        }
+
+        // Color
+        if (line_json.contains("color") && line_json["color"].is_array() && line_json["color"].size() >= 4)
+        {
+            line.color.r = line_json["color"][0].get<uint8_t>();
+            line.color.g = line_json["color"][1].get<uint8_t>();
+            line.color.b = line_json["color"][2].get<uint8_t>();
+            line.color.a = line_json["color"][3].get<uint8_t>();
+        }
+
+        // Scales and offsets
+        line.xscale = line_json.value("xscale", 1.0f);
+        line.xoffset = line_json.value("xoffset", 0.0f);
+        line.yscale = line_json.value("yscale", 1.0f);
+        line.yoffset = line_json.value("yoffset", 0.0f);
+
+        plot.lines.push_back(line);
+    }
+
+    printf("Loaded %zu plot lines from config\n", plot.lines.size());
+}
 

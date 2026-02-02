@@ -35,6 +35,14 @@
 #include "buffer_sync.h"
 #include "plotting.h"
 
+// JSON for loading plotting config
+#include <nlohmann/json.hpp>
+#include <fstream>
+
+// Declare plotting config functions (defined in config.cpp)
+void load_plotting_config(const nlohmann::json& j, Plotter& plot,
+    const std::vector<DarttField*>& leaf_list, float* sys_sec_ptr);
+
 
 int main(int argc, char* argv[])
 {
@@ -103,10 +111,27 @@ int main(int argc, char* argv[])
 
 	// Load config
 	DarttConfig config;
-	if (!load_dartt_config("config.json", config)) 
+	if (!load_dartt_config("config.json", config))
 	{
 		printf("Failed to load config.json\n");
 		// Continue anyway - UI will be empty
+	}
+
+	// Load plotting config
+	{
+		std::ifstream f("config.json");
+		if (f.is_open())
+		{
+			try
+			{
+				nlohmann::json j = nlohmann::json::parse(f);
+				load_plotting_config(j, plot, config.leaf_list, &plot.sys_sec);
+			}
+			catch (const std::exception& e)
+			{
+				printf("Warning: Could not load plotting config: %s\n", e.what());
+			}
+		}
 	}
 
 	// Allocate DARTT buffers
@@ -213,7 +238,7 @@ int main(int argc, char* argv[])
 		calculate_display_values(config.leaf_list);		
 
 		// Render UI
-		bool value_edited = render_live_expressions(config);
+		bool value_edited = render_live_expressions(config, plot);
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
 		render_plotting_menu(plot, config.root, config.subscribed_list);
