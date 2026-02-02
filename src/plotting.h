@@ -33,13 +33,21 @@ public:
 	*/
 	timemode_t mode;
 
+	//formula: display_value*xscale + xoffset (for xy mode)
+	//for time mode: xscale is computed automatically
 	float xscale;
+	float xoffset;	//unused in time mode (roll mode). In xy-mode, used to manipulate the xy offset in display_ units
+
+
+	//formula: display_value*yscale + yoffset - pixel units (always)
+	float yscale;	//scale the display_ value by one additional scalar  for plotting
+	float yoffset;
 
 	Line();
 	Line(int capacity);
 
 	bool enqueue_data(int enqueue_cap, int screen_width);
-
+	
 };
 
 class Plotter

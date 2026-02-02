@@ -23,7 +23,10 @@ Line::Line()
 	, xsource(NULL)
 	, ysource(NULL)
 	, mode(TIME_MODE)
-	, xscale(1.0f)
+	, xscale(1.f)
+	, xoffset(0.f)
+	, yscale(1.f)
+	, yoffset(0.f)
 {
 	color.r = 0;
 	color.g = 0;
@@ -71,6 +74,19 @@ bool Plotter::init(int width, int height)
 	return true;
 }
 
+int sat_pix_to_window(int val, int thresh)
+{
+	if(val < 1)
+	{
+		return 1;
+	}
+	else if(val > (thresh-1))
+	{
+		return (thresh-1);
+	}
+	return val;
+}
+
 void Plotter::render()
 {
 	// Save current matrix state
@@ -98,8 +114,20 @@ void Plotter::render()
 		glBegin(GL_LINE_STRIP);
 		for (int j = 0; j < num_points; j++)
 		{
-			int x = (int)( (line->points[j].x - line->points.front().x) * line->xscale);
-			int y = (int)(line->points[j].y + (float)window_height/2.f);
+			int x = 0; 
+			int y = 0;
+			if(line->mode == TIME_MODE)
+			{
+				x = (int)( (line->points[j].x - line->points.front().x) * line->xscale);
+				y = (int)(line->points[j].y * line->yscale + line->yoffset + (float)window_height/2.f);	
+			}
+			else
+			{
+				x = (int)(line->points[j].x * line->xscale + line->xoffset + (float)window_width/2.f);
+				y = (int)(line->points[j].y * line->yscale + line->yoffset + (float)window_height/2.f);
+			}
+			x = sat_pix_to_window(x, window_width);
+			y = sat_pix_to_window(y, window_width);
 			glVertex2f(x, y);
 		}
 		glEnd();

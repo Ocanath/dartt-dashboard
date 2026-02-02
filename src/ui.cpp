@@ -760,6 +760,20 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 		{
 			ImGui::TextDisabled("None");
 		}
+		
+		if(line.mode == XY_MODE)
+		{
+			ImGui::SameLine();
+			ImGui::Text("Xscale:");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(60.0f);
+			ImGui::InputFloat("##xscale", &line.xscale, 0, 0, "%.2f");
+			ImGui::SameLine();
+			ImGui::Text("Xoff:");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(60.0f);
+			ImGui::InputFloat("##xoffset", &line.xoffset, 0, 0, "%.2f");
+		}
 
 		// Display current Y source
 		ImGui::Text("Y Source:");
@@ -781,6 +795,16 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 		{
 			ImGui::TextDisabled("None");
 		}
+		ImGui::SameLine();
+		ImGui::Text("Yscale:");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(60.0f);
+		ImGui::InputFloat("##yscale", &line.yscale, 0, 0, "%.2f");
+		ImGui::SameLine();
+		ImGui::Text("Yoff:");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(60.0f);
+		ImGui::InputFloat("##yoffset", &line.yoffset, 0, 0, "%.2f");
 
 		ImGui::Spacing();
 		ImGui::PopID();
