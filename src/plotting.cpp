@@ -15,22 +15,6 @@ fpoint_t::fpoint_t(float x_val, float y_val)
 {
 }
 
-// color_t definition
-color_t::color_t()
-	: r(255)
-	, g(255)
-	, b(255)
-	, a(255)
-{
-}
-
-color_t::color_t(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
-	: r(red)
-	, g(green)
-	, b(blue)
-	, a(alpha)
-{
-}
 
 // Line class implementation
 Line::Line()
@@ -41,6 +25,9 @@ Line::Line()
 	, mode(TIME_MODE)
 	, xscale(1.0f)
 {
+	color.r = 0;
+	color.g = 0;
+	color.b = 0;
 }
 
 Line::Line(int capacity)
@@ -79,6 +66,8 @@ bool Plotter::init(int width, int height)
 	lines[0].points.resize(line_capacity);
 	lines[0].points.clear();
 	lines[0].xsource = &sys_sec;
+	int color_idx = (lines.size() % NUM_COLORS);
+	lines[0].color = template_colors[color_idx];
 	return true;
 }
 
@@ -105,7 +94,7 @@ void Plotter::render()
 			continue;
 		}
 
-		glColor4ub(line->color.r, line->color.g, line->color.b, line->color.a);
+		glColor4ub(line->color.r, line->color.g, line->color.b, 255);	//always use alpha=255
 		glBegin(GL_LINE_STRIP);
 		for (int j = 0; j < num_points; j++)
 		{

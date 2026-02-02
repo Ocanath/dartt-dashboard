@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <cstdint>
+#include "colors.h"
 
 struct fpoint_t
 {
@@ -13,17 +14,6 @@ struct fpoint_t
 	fpoint_t(float x_val, float y_val);
 };
 
-struct color_t
-{
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-	uint8_t a;
-
-	color_t();
-	color_t(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha);
-};
-
 
 typedef enum {TIME_MODE, XY_MODE}timemode_t;
 
@@ -31,7 +21,7 @@ class Line
 {
 public:
 	std::vector<fpoint_t> points;
-	color_t color;
+	rgb_t color;
 
 
 

@@ -220,7 +220,11 @@ int main(int argc, char* argv[])
 		plot.sys_sec = (float)(((double)SDL_GetTicks64())/1000.);	//outside of class, load the time in sec as timebase for signals that use it as default
 
 		//add new frame of data to each line, as determined by UI
-		plot.lines[0].enqueue_data(plot.window_width, plot.window_width);
+		for(int i = 0; i < plot.lines.size(); i++)
+		{
+			plot.lines[i].enqueue_data(plot.window_width, plot.window_width);
+		}
+		
 
 		// Render
 		ImGui::Render();

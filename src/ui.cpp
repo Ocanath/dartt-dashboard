@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <vector>
 #include <string>
+#include "colors.h"
 
 
 bool init_imgui(SDL_Window* window, SDL_GLContext gl_context) 
@@ -571,9 +572,13 @@ static bool render_single_field(DarttField* field, bool show_display_props, Plot
 						if (current_line >= 0)
 						{
 							if (current_is_x)
+							{
 								plot.lines[current_line].xsource = nullptr;
+							}
 							else
+							{
 								plot.lines[current_line].ysource = nullptr;
+							}
 						}
 						// Assign to new line (default Y)
 						plot.lines[i].ysource = &field->display_value;
@@ -667,12 +672,31 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 {
 	ImGui::Begin("Plot Settings");
 
+	// Add line button
+	if (ImGui::SmallButton("+"))
+	{
+		plot.lines.push_back(Line());
+		plot.lines.back().xsource = &plot.sys_sec;
+		int color_index = (plot.lines.size() % NUM_COLORS);
+		plot.lines.back().color = template_colors[color_index];
+	}
+	ImGui::SameLine();
+	ImGui::Text("Add Line");
+	ImGui::Separator();
+
+	int line_to_remove = -1;
 	for (size_t line_idx = 0; line_idx < plot.lines.size(); line_idx++)
 	{
 		Line& line = plot.lines[line_idx];
 		ImGui::PushID((int)line_idx);
 
+		// Line header with remove button
 		ImGui::Text("Line %zu", line_idx);
+		ImGui::SameLine();
+		if (ImGui::SmallButton("-"))
+		{
+			line_to_remove = (int)line_idx;
+		}
 		ImGui::Separator();
 
 		// Mode selection via radio buttons
@@ -741,6 +765,12 @@ bool render_plotting_menu(Plotter &plot, const std::vector<DarttField*> &subscri
 
 		ImGui::Spacing();
 		ImGui::PopID();
+	}
+
+	// Remove line after loop to avoid iterator invalidation
+	if (line_to_remove >= 0 && line_to_remove < (int)plot.lines.size())
+	{
+		plot.lines.erase(plot.lines.begin() + line_to_remove);
 	}
 
 	ImGui::End();
