@@ -827,7 +827,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot)
     bool save_clicked = ImGui::Button("Save");
 	if(save_clicked)
 	{
-		save_dartt_config("config.json", config, &plot, &plot.sys_sec);
+		save_dartt_config("config.json", config, plot);
 	}
 
 	ImGui::SameLine();

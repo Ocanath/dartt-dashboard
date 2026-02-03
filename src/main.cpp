@@ -35,13 +35,6 @@
 #include "buffer_sync.h"
 #include "plotting.h"
 
-// JSON for loading plotting config
-#include <nlohmann/json.hpp>
-#include <fstream>
-
-// Declare plotting config functions (defined in config.cpp)
-void load_plotting_config(const nlohmann::json& j, Plotter& plot,
-    const std::vector<DarttField*>& leaf_list, float* sys_sec_ptr);
 
 
 int main(int argc, char* argv[])
@@ -109,29 +102,12 @@ int main(int argc, char* argv[])
 		printf("Warning - no serial connection made\n");
 	}
 
-	// Load config
+	// Load config (including plotting config)
 	DarttConfig config;
-	if (!load_dartt_config("config.json", config))
+	if (!load_dartt_config("config.json", config, plot))
 	{
 		printf("Failed to load config.json\n");
 		// Continue anyway - UI will be empty
-	}
-
-	// Load plotting config
-	{
-		std::ifstream f("config.json");
-		if (f.is_open())
-		{
-			try
-			{
-				nlohmann::json j = nlohmann::json::parse(f);
-				load_plotting_config(j, plot, config.leaf_list, &plot.sys_sec);
-			}
-			catch (const std::exception& e)
-			{
-				printf("Warning: Could not load plotting config: %s\n", e.what());
-			}
-		}
 	}
 
 	// Allocate DARTT buffers

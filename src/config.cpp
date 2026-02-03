@@ -1,6 +1,5 @@
 #include "config.h"
 #include "plotting.h"
-#include <nlohmann/json.hpp>
 #include <fstream>
 #include <cstdio>
 #include <vector>
@@ -242,23 +241,23 @@ void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list)
 }
 
 // Main config loader
-bool load_dartt_config(const char* json_path, DarttConfig& config) 
+bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot)
 {
     // Open and parse JSON file
     std::ifstream f(json_path);
-    if (!f.is_open()) 
-	{
+    if (!f.is_open())
+    {
         fprintf(stderr, "Error: Could not open config file: %s\n", json_path);
         return false;
     }
 
     json j;
-    try 
-	{
+    try
+    {
         j = json::parse(f);
-    } 
-	catch (const json::parse_error& e) 
-	{
+    }
+    catch (const json::parse_error& e)
+    {
         fprintf(stderr, "Error: JSON parse error: %s\n", e.what());
         return false;
     }
@@ -278,8 +277,12 @@ bool load_dartt_config(const char* json_path, DarttConfig& config)
 
     printf("Loaded config: symbol=%s, address=0x%08X, nbytes=%u, nwords=%u\n",
            config.symbol.c_str(), config.address, config.nbytes, config.nwords);
-	
-	collect_leaves(config.root, config.leaf_list);
+
+    collect_leaves(config.root, config.leaf_list);
+
+    // Load plotting config if plotter provided
+	load_plotting_config(j, plot, config.leaf_list);
+
     return true;
 }
 
@@ -318,7 +321,7 @@ static void inject_ui_settings_iterative(json& root_json, const std::vector<Dart
 }
 
 // Save plotting config to JSON
-void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttField*>& leaf_list, float* sys_sec_ptr)
+void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttField*>& leaf_list)
 {
     json plotting;
     json lines_json = json::array();
@@ -332,7 +335,7 @@ void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttF
 
         // X source data
         json xsource_data;
-        if (line.xsource == sys_sec_ptr)
+        if (line.xsource == &plot.sys_sec)
         {
             xsource_data["byte_offset"] = -1;
             xsource_data["name"] = "sys_sec";
@@ -410,8 +413,8 @@ void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttF
 
 // Save config to JSON file (only adds ui objects, preserves everything else)
 // If plot is provided, also saves plotting config
-bool save_dartt_config(const char* json_path, const DarttConfig& config,
-    const Plotter* plot, float* sys_sec_ptr) {
+bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot) 
+{
     // Read original JSON
     std::ifstream f_in(json_path);
     if (!f_in.is_open()) {
@@ -434,10 +437,7 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config,
     }
 
     // Save plotting config if plotter provided
-    if (plot != nullptr) 
-	{
-        save_plotting_config(j, *plot, config.leaf_list, sys_sec_ptr);
-    }
+	save_plotting_config(j, plot, config.leaf_list);
 
     // Write back
     std::ofstream f_out(json_path);
@@ -472,8 +472,7 @@ DarttField* find_field_by_offset_and_name(
 
 
 // Load plotting config from JSON
-void load_plotting_config(const json& j, Plotter& plot,
-    const std::vector<DarttField*>& leaf_list, float* sys_sec_ptr)
+void load_plotting_config(const json& j, Plotter& plot, const std::vector<DarttField*>& leaf_list)
 {
     if (!j.contains("plotting"))
     {
@@ -508,7 +507,7 @@ void load_plotting_config(const json& j, Plotter& plot,
 
             if (offset == -1 && name == "sys_sec")
             {
-                line.xsource = sys_sec_ptr;
+                line.xsource = &plot.sys_sec;
             }
             else if (offset == -2 || name == "none")
             {
@@ -525,13 +524,13 @@ void load_plotting_config(const json& j, Plotter& plot,
                 {
                     printf("Warning: Could not find xsource field '%s' at offset %d, defaulting to sys_sec\n",
                            name.c_str(), offset);
-                    line.xsource = sys_sec_ptr;
+                    line.xsource = &plot.sys_sec;
                 }
             }
         }
         else
         {
-            line.xsource = sys_sec_ptr;
+            line.xsource = &plot.sys_sec;
         }
 
         // Y source
