@@ -34,13 +34,20 @@
 #include "ui.h"
 #include "buffer_sync.h"
 #include "plotting.h"
-
+#include "elf_parser.h"
 
 
 int main(int argc, char* argv[])
 {
 	(void)argc;
 	(void)argv;
+	
+	elf_parser_t elf_parser;
+	elf_parser_open("foc-code.elf", &elf_parser);
+	elf_parser_generate_json(elf_parser, "gl_dp", "test.json");
+	elf_parser_close(elf_parser);
+	
+	// elf_parser_generate_json()
 
 	// Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) 
