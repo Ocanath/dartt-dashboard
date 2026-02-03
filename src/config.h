@@ -30,7 +30,8 @@ enum class FieldType {
 };
 
 // Single field in the hierarchy
-struct DarttField {
+struct DarttField 
+{
     std::string name;
     uint32_t byte_offset;       // absolute from struct base
     uint32_t dartt_offset;      // 32-bit word index (byte_offset / 4)
@@ -88,7 +89,8 @@ struct DarttField {
 };
 
 // Top-level config loaded from JSON
-struct DarttConfig {
+struct DarttConfig 
+{
     std::string symbol;
     std::string address_str;    // hex string "0x20001000"
     uint32_t address;           // numeric address
