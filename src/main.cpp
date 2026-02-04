@@ -37,17 +37,20 @@
 #include "elf_parser.h"
 
 
+
+
 int main(int argc, char* argv[])
 {
 	(void)argc;
 	(void)argv;
-	
+
 	elf_parser_ctx parser;
 	elf_parser_init(&parser, "foc-code.elf");
+	DarttConfig test_cfg;
+	elf_parser_load_config("foc-code.elf", "gl_dp", &test_cfg);
 	elf_parser_generate_json(&parser, "gl_dp", "test.json");
 	elf_parser_cleanup(&parser);
 
-	// elf_parser_generate_json()
 
 	// Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) 

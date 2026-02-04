@@ -420,12 +420,16 @@ static bool find_variable_die(Dwarf_Debug dbg, const char* name,
                 continue;
             }
 
-            if (tag == DW_TAG_variable) {
+            if (tag == DW_TAG_variable) 
+			{
                 std::string var_name;
-                if (get_die_name(dbg, die, var_name) && var_name == name) {
+                if (get_die_name(dbg, die, var_name) && var_name == name) 
+				{
+					printf("Found correct name %s\n", var_name.c_str());
                     /* Found it! Get the type reference */
                     Dwarf_Off type_off;
-                    if (get_type_ref_offset(dbg, die, &type_off)) {
+                    if (get_type_ref_offset(dbg, die, &type_off)) 
+					{
                         *out_die = die;
                         *out_type_offset = type_off;
                         /* Clean up remaining stack */
@@ -435,6 +439,10 @@ static bool find_variable_die(Dwarf_Debug dbg, const char* name,
                         return true;
                     }
                 }
+				else
+				{
+					printf("Looked at %s, not correct\n", var_name.c_str());
+				}
             }
 
             /* Add children to stack */
