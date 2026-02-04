@@ -26,16 +26,6 @@
  * Internal Types
  * ============================================================================ */
 
-/* Parser context - holds ELFIO and libdwarf state */
-struct elf_parser_ctx {
-    ELFIO::elfio elf;
-    Dwarf_Debug dbg;
-    std::string path;
-    bool dwarf_initialized;
-
-    elf_parser_ctx() : dbg(nullptr), dwarf_initialized(false) {}
-};
-
 /* Forward declaration for recursive structure */
 struct TypeInfo;
 
@@ -132,7 +122,7 @@ const char* elf_parse_error_str(elf_parse_error_t err) {
  * Symbol Table Access (ELFIO)
  * ============================================================================ */
 
-bool elf_parser_find_symbol(elf_parser_t parser, const char* name,
+bool elf_parser_find_symbol(elf_parser_ctx* parser, const char* name,
                             uint32_t* out_addr, uint32_t* out_size) {
     if (!parser || !name) return false;
 
@@ -165,46 +155,44 @@ bool elf_parser_find_symbol(elf_parser_t parser, const char* name,
  * Parser Lifecycle
  * ============================================================================ */
 
-elf_parse_error_t elf_parser_open(const char* path, elf_parser_t* out_parser) {
-    if (!path || !out_parser) return ELF_PARSE_ERROR;
+elf_parse_error_t elf_parser_init(elf_parser_ctx* parser, const char* path)
+{
+    if (!parser || !path) return ELF_PARSE_ERROR;
 
-    auto* ctx = new (std::nothrow) elf_parser_ctx();
-    if (!ctx) return ELF_PARSE_MEMORY_ERROR;
-
-    ctx->path = path;
+    parser->path = path;
+    parser->dbg = nullptr;
+    parser->dwarf_initialized = false;
 
     /* Load ELF with ELFIO */
-    if (!ctx->elf.load(path)) {
-        delete ctx;
+    if (!parser->elf.load(path)) {
         return ELF_PARSE_NOT_ELF;
     }
 
     /* Initialize libdwarf */
     Dwarf_Error err = nullptr;
     int res = dwarf_init_path(path, nullptr, 0, DW_GROUPNUMBER_ANY,
-                              nullptr, nullptr, &ctx->dbg, &err);
+                              nullptr, nullptr, &parser->dbg, &err);
     if (res == DW_DLV_NO_ENTRY) {
         /* No DWARF info, but ELF is valid */
-        ctx->dwarf_initialized = false;
+        parser->dwarf_initialized = false;
     } else if (res == DW_DLV_ERROR) {
-        if (err) dwarf_dealloc_error(ctx->dbg, err);
-        delete ctx;
+        if (err) dwarf_dealloc_error(parser->dbg, err);
         return ELF_PARSE_NO_DWARF;
     } else {
-        ctx->dwarf_initialized = true;
+        parser->dwarf_initialized = true;
     }
 
-    *out_parser = ctx;
     return ELF_PARSE_SUCCESS;
 }
 
-void elf_parser_close(elf_parser_t parser) {
+void elf_parser_cleanup(elf_parser_ctx* parser) {
     if (!parser) return;
 
     if (parser->dwarf_initialized && parser->dbg) {
         dwarf_finish(parser->dbg);
+        parser->dbg = nullptr;
+        parser->dwarf_initialized = false;
     }
-    delete parser;
 }
 
 /* ============================================================================
@@ -907,14 +895,14 @@ elf_parse_error_t elf_parser_load_config(const char* elf_path,
                                          DarttConfig* config) {
     if (!elf_path || !symbol_name || !config) return ELF_PARSE_ERROR;
 
-    elf_parser_t parser = nullptr;
-    elf_parse_error_t err = elf_parser_open(elf_path, &parser);
+    elf_parser_ctx parser;
+    elf_parse_error_t err = elf_parser_init(&parser, elf_path);
     if (err != ELF_PARSE_SUCCESS) return err;
 
     /* Get symbol address and size */
     uint32_t sym_addr = 0, sym_size = 0;
-    if (!elf_parser_find_symbol(parser, symbol_name, &sym_addr, &sym_size)) {
-        elf_parser_close(parser);
+    if (!elf_parser_find_symbol(&parser, symbol_name, &sym_addr, &sym_size)) {
+        elf_parser_cleanup(&parser);
         return ELF_PARSE_SYMBOL_NOT_FOUND;
     }
 
@@ -925,25 +913,25 @@ elf_parse_error_t elf_parser_load_config(const char* elf_path,
     config->address_str = addr_buf;
 
     /* Check for DWARF info */
-    if (!parser->dwarf_initialized) {
-        elf_parser_close(parser);
+    if (!parser.dwarf_initialized) {
+        elf_parser_cleanup(&parser);
         return ELF_PARSE_NO_DWARF;
     }
 
     /* Find the variable in DWARF */
     Dwarf_Die var_die = nullptr;
     Dwarf_Off type_offset = 0;
-    if (!find_variable_die(parser->dbg, symbol_name, &var_die, &type_offset)) {
-        elf_parser_close(parser);
+    if (!find_variable_die(parser.dbg, symbol_name, &var_die, &type_offset)) {
+        elf_parser_cleanup(&parser);
         return ELF_PARSE_NO_DEBUG_INFO;
     }
 
     /* Resolve the type */
     TypeCache cache;
-    std::unique_ptr<TypeInfo> type_info = resolve_type_iterative(parser->dbg, type_offset, cache);
+    std::unique_ptr<TypeInfo> type_info = resolve_type_iterative(parser.dbg, type_offset, cache);
     if (!type_info) {
         if (var_die) dwarf_dealloc_die(var_die);
-        elf_parser_close(parser);
+        elf_parser_cleanup(&parser);
         return ELF_PARSE_TYPE_ERROR;
     }
 
@@ -962,7 +950,7 @@ elf_parse_error_t elf_parser_load_config(const char* elf_path,
            config->symbol.c_str(), config->address, config->nbytes, config->nwords);
 
     if (var_die) dwarf_dealloc_die(var_die);
-    elf_parser_close(parser);
+    elf_parser_cleanup(&parser);
     return ELF_PARSE_SUCCESS;
 }
 
@@ -1075,7 +1063,7 @@ static void compute_json_dartt_offsets(json& type_json, uint32_t base_offset) {
     }
 }
 
-elf_parse_error_t elf_parser_generate_json(elf_parser_t parser,
+elf_parse_error_t elf_parser_generate_json(elf_parser_ctx* parser,
                                            const char* symbol_name,
                                            const char* output_path) {
     if (!parser || !symbol_name) return ELF_PARSE_ERROR;

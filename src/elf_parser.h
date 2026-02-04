@@ -1,16 +1,18 @@
 /*
- * elf_parser.h - C API for parsing ELF files with DWARF debug info
+ * elf_parser.h - ELF/DWARF parser for extracting struct layouts
  *
- * This module provides direct ELF/DWARF parsing to extract struct layouts,
- * replacing the Python-based dartt-describe.py workflow.
+ * Replaces the Python-based dartt-describe.py workflow with direct C++ parsing.
  *
  * Usage:
- *   elf_parser_t parser;
- *   if (elf_parser_open("firmware.elf", &parser) == ELF_PARSE_SUCCESS) {
- *       DarttConfig config;
- *       elf_parser_load_config(parser, "gl_dp", &config);
- *       elf_parser_close(parser);
+ *   elf_parser_ctx parser;
+ *   if (elf_parser_init(&parser, "firmware.elf") == ELF_PARSE_SUCCESS) {
+ *       elf_parser_generate_json(&parser, "gl_dp", "config.json");
+ *       elf_parser_cleanup(&parser);
  *   }
+ *
+ *   // Or use the all-in-one function:
+ *   DarttConfig config;
+ *   elf_parser_load_config("firmware.elf", "gl_dp", &config);
  */
 
 #ifndef DARTT_ELF_PARSER_H
@@ -18,10 +20,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <string>
+#include <elfio/elfio.hpp>
+#include <libdwarf.h>
 
 /* Error codes returned by elf_parser functions */
 typedef enum {
@@ -39,55 +40,60 @@ typedef enum {
 /* Returns a human-readable string for an error code */
 const char* elf_parse_error_str(elf_parse_error_t err);
 
-/* Opaque parser handle */
-typedef struct elf_parser_ctx* elf_parser_t;
+/* Parser context - holds ELFIO and libdwarf state */
+struct elf_parser_ctx {
+    ELFIO::elfio elf;       /* ELFIO reader for symbol table access */
+    Dwarf_Debug dbg;        /* libdwarf debug handle */
+    std::string path;       /* path to the ELF file */
+    bool dwarf_initialized; /* true if libdwarf was successfully initialized */
+
+    elf_parser_ctx() : dbg(nullptr), dwarf_initialized(false) {}
+};
 
 /*
- * Open an ELF file for parsing.
+ * Initialize parser and load an ELF file.
  *
- * @param path       Path to the ELF file
- * @param out_parser Receives the parser handle on success
- * @return           ELF_PARSE_SUCCESS or error code
+ * @param parser Pointer to parser struct (caller-allocated, e.g. on stack)
+ * @param path   Path to the ELF file
+ * @return       ELF_PARSE_SUCCESS or error code
  */
-elf_parse_error_t elf_parser_open(const char* path, elf_parser_t* out_parser);
+elf_parse_error_t elf_parser_init(elf_parser_ctx* parser, const char* path);
 
 /*
- * Close an ELF parser and free resources.
+ * Clean up parser internal resources (libdwarf handle, etc).
+ * Does not free the parser struct itself.
  *
- * @param parser Parser handle from elf_parser_open()
+ * @param parser Pointer to parser struct
  */
-void elf_parser_close(elf_parser_t parser);
+void elf_parser_cleanup(elf_parser_ctx* parser);
 
 /*
  * Find a symbol in the ELF symbol table.
  *
- * @param parser   Parser handle
+ * @param parser   Parser pointer
  * @param name     Symbol name to search for
  * @param out_addr Receives the symbol's address (can be NULL)
  * @param out_size Receives the symbol's size in bytes (can be NULL)
  * @return         true if symbol found, false otherwise
  */
-bool elf_parser_find_symbol(elf_parser_t parser, const char* name,
+bool elf_parser_find_symbol(elf_parser_ctx* parser, const char* name,
                             uint32_t* out_addr, uint32_t* out_size);
 
 /*
  * Generate JSON output matching dartt-describe.py format.
  *
- * @param parser      Parser handle
+ * @param parser      Parser pointer
  * @param symbol_name Name of the global variable to describe
  * @param output_path Path to write JSON file, or NULL for stdout
  * @return            ELF_PARSE_SUCCESS or error code
  */
 elf_parse_error_t elf_parser_generate_json(
-    elf_parser_t parser,
+    elf_parser_ctx* parser,
     const char* symbol_name,
     const char* output_path
 );
 
-#ifdef __cplusplus
-}
-
-/* C++ interface for DarttConfig integration */
+/* Forward declaration for DarttConfig */
 struct DarttConfig;
 
 /*
@@ -109,7 +115,5 @@ elf_parse_error_t elf_parser_load_config(
     const char* symbol_name,
     DarttConfig* config
 );
-
-#endif /* __cplusplus */
 
 #endif /* DARTT_ELF_PARSER_H */
