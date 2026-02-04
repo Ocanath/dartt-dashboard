@@ -126,10 +126,11 @@ bool elf_parser_find_symbol(elf_parser_ctx* parser, const char* name,
                             uint32_t* out_addr, uint32_t* out_size) {
     if (!parser || !name) return false;
 
-    for (const auto& section : parser->elf.sections) {
+    for (ELFIO::Elf_Half i = 0; i < parser->elf.sections.size(); i++) {
+        ELFIO::section* section = parser->elf.sections[i];
         if (section->get_type() == ELFIO::SHT_SYMTAB ||
             section->get_type() == ELFIO::SHT_DYNSYM) {
-            ELFIO::const_symbol_section_accessor symbols(parser->elf, section.get());
+            ELFIO::const_symbol_section_accessor symbols(parser->elf, section);
             for (ELFIO::Elf_Xword i = 0; i < symbols.get_symbols_num(); i++) {
                 std::string sym_name;
                 ELFIO::Elf64_Addr value;
@@ -345,7 +346,7 @@ struct TypeCache {
     std::unordered_map<Dwarf_Off, std::unique_ptr<TypeInfo>> cache;
 
     TypeInfo* get(Dwarf_Off offset) {
-        auto it = cache.find(offset);
+        std::unordered_map<Dwarf_Off, std::unique_ptr<TypeInfo>>::iterator it = cache.find(offset);
         return (it != cache.end()) ? it->second.get() : nullptr;
     }
 
@@ -428,8 +429,8 @@ static bool find_variable_die(Dwarf_Debug dbg, const char* name,
                         *out_die = die;
                         *out_type_offset = type_off;
                         /* Clean up remaining stack */
-                        for (auto& d : die_stack) {
-                            if (d != cu_die) dwarf_dealloc_die(d);
+                        for (size_t j = 0; j < die_stack.size(); j++) {
+                            if (die_stack[j] != cu_die) dwarf_dealloc_die(die_stack[j]);
                         }
                         return true;
                     }
@@ -463,7 +464,7 @@ static bool find_variable_die(Dwarf_Debug dbg, const char* name,
 static std::unique_ptr<TypeInfo> resolve_type_iterative(Dwarf_Debug dbg, Dwarf_Off start_offset,
                                                         TypeCache& cache) {
     std::vector<DwarfWork> stack;
-    auto root_result = std::make_unique<TypeInfo>();
+    std::unique_ptr<TypeInfo> root_result = std::make_unique<TypeInfo>();
 
     stack.emplace_back(WORK_RESOLVE_TYPE, start_offset, root_result.get(), 0, 0);
 
@@ -984,7 +985,8 @@ static json type_info_to_json(const TypeInfo& ti) {
             j[ti.type + "_name"] = ti.name;
         }
         json fields = json::array();
-        for (const auto& f : ti.fields) {
+        for (size_t i = 0; i < ti.fields.size(); i++) {
+            const FieldInfo& f = ti.fields[i];
             json fj;
             fj["name"] = f.name;
             fj["byte_offset"] = f.byte_offset;
@@ -1015,14 +1017,15 @@ static json type_info_to_json(const TypeInfo& ti) {
         if (!ti.name.empty()) {
             j["enum_name"] = ti.name;
         }
-        json enumerators = json::array();
-        for (const auto& ev : ti.enumerators) {
+        json enumerators_json = json::array();
+        for (size_t i = 0; i < ti.enumerators.size(); i++) {
+            const EnumValue& ev = ti.enumerators[i];
             json ej;
             ej["name"] = ev.name;
             ej["value"] = ev.value;
-            enumerators.push_back(ej);
+            enumerators_json.push_back(ej);
         }
-        j["enumerators"] = enumerators;
+        j["enumerators"] = enumerators_json;
     }
 
     if (ti.is_const) j["const"] = true;
@@ -1037,7 +1040,9 @@ static void compute_json_dartt_offsets(json& type_json, uint32_t base_offset) {
 
     if (type == "struct" || type == "union") {
         if (type_json.contains("fields")) {
-            for (auto& field : type_json["fields"]) {
+            json& fields_array = type_json["fields"];
+            for (size_t i = 0; i < fields_array.size(); i++) {
+                json& field = fields_array[i];
                 uint32_t rel_offset = field.value("byte_offset", 0u);
                 uint32_t abs_offset = base_offset + rel_offset;
                 field["byte_offset"] = abs_offset;
