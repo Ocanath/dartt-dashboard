@@ -867,3 +867,77 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot)
 
     return any_edited;
 }
+
+bool render_elf_load_popup(bool* show, const std::string& elf_path,
+                           char* var_name_buf, size_t buf_size,
+                           std::string& error_msg)
+{
+    bool load_requested = false;
+
+    if (*show)
+    {
+        ImGui::OpenPopup("Load ELF");
+        *show = false;  // Only open once; modal stays open until dismissed
+    }
+
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(500, 0), ImGuiCond_Appearing);
+
+    if (ImGui::BeginPopupModal("Load ELF", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("File:");
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s", elf_path.c_str());
+
+        ImGui::Separator();
+
+        ImGui::Text("Variable name:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        bool enter_pressed = ImGui::InputText("##varname", var_name_buf, buf_size,
+                                               ImGuiInputTextFlags_EnterReturnsTrue);
+
+        // Focus the text input on first appearance
+        if (ImGui::IsWindowAppearing())
+        {
+            ImGui::SetKeyboardFocusHere(-1);
+        }
+
+        // Error message
+        if (!error_msg.empty())
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+            ImGui::TextWrapped("%s", error_msg.c_str());
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::Separator();
+
+        bool name_valid = (var_name_buf[0] != '\0');
+
+        if (!name_valid)
+        {
+            ImGui::BeginDisabled();
+        }
+        if (ImGui::Button("Load", ImVec2(120, 0)) || (enter_pressed && name_valid))
+        {
+            load_requested = true;
+            // Don't close popup yet - caller decides based on success/failure
+        }
+        if (!name_valid)
+        {
+            ImGui::EndDisabled();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+        {
+            error_msg.clear();
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+
+    return load_requested;
+}

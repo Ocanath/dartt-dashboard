@@ -36,7 +36,16 @@
 #include "plotting.h"
 #include "elf_parser.h"
 
+#include <algorithm>
+#include <string>
 
+// Helper: case-insensitive extension check
+static bool ends_with_ci(const std::string& str, const std::string& suffix) {
+	if (suffix.size() > str.size()) return false;
+	std::string tail = str.substr(str.size() - suffix.size());
+	std::transform(tail.begin(), tail.end(), tail.begin(), ::tolower);
+	return tail == suffix;
+}
 
 
 int main(int argc, char* argv[])
@@ -44,13 +53,12 @@ int main(int argc, char* argv[])
 	(void)argc;
 	(void)argv;
 
-	elf_parser_ctx parser;
-	elf_parser_init(&parser, "foc-code.elf");
-	DarttConfig test_cfg;
-	elf_parser_load_config("foc-code.elf", "gl_dp", &test_cfg);
-	elf_parser_generate_json(&parser, "gl_dp", "test.json");
-	elf_parser_cleanup(&parser);
-
+	// Drag-and-drop state
+	std::string dropped_file_path;
+	bool show_elf_popup = false;
+	char var_name_buf[128] = "";
+	std::string elf_load_error;
+	bool pending_json_load = false;
 
 	// Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) 
@@ -157,9 +165,26 @@ int main(int argc, char* argv[])
 			}
 			if (event.type == SDL_WINDOWEVENT &&
 				event.window.event == SDL_WINDOWEVENT_CLOSE &&
-				event.window.windowID == SDL_GetWindowID(window)) 
+				event.window.windowID == SDL_GetWindowID(window))
 			{
 				running = false;
+			}
+			if (event.type == SDL_DROPFILE)
+			{
+				char* file = event.drop.file;
+				dropped_file_path = file;
+				SDL_free(file);
+
+				if (ends_with_ci(dropped_file_path, ".elf"))
+				{
+					var_name_buf[0] = '\0';
+					elf_load_error.clear();
+					show_elf_popup = true;
+				}
+				else if (ends_with_ci(dropped_file_path, ".json"))
+				{
+					pending_json_load = true;
+				}
 			}
 		}
 
@@ -167,7 +192,80 @@ int main(int argc, char* argv[])
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
-		
+
+		// --- Drag-and-drop: JSON load ---
+		if (pending_json_load)
+		{
+			pending_json_load = false;
+			// Detach external references before replacing config
+			for (size_t i = 0; i < plot.lines.size(); i++)
+			{
+				plot.lines[i].xsource = &plot.sys_sec;
+				plot.lines[i].ysource = nullptr;
+			}
+			ds.ctl_base.buf = nullptr;
+			ds.periph_base.buf = nullptr;
+			config = DarttConfig();
+
+			if (load_dartt_config(dropped_file_path.c_str(), config, plot))
+			{
+				if (config.nbytes > 0)
+				{
+					config.allocate_buffers();
+					ds.ctl_base.buf = config.ctl_buf.buf;
+					ds.ctl_base.len = config.ctl_buf.len;
+					ds.ctl_base.size = config.ctl_buf.size;
+					ds.periph_base.buf = config.periph_buf.buf;
+					ds.periph_base.len = config.periph_buf.len;
+					ds.periph_base.size = config.periph_buf.size;
+				}
+				printf("Loaded config from JSON: %s\n", dropped_file_path.c_str());
+			}
+			else
+			{
+				printf("Failed to load JSON: %s\n", dropped_file_path.c_str());
+			}
+		}
+
+		// --- Drag-and-drop: ELF popup + load ---
+		if (render_elf_load_popup(&show_elf_popup, dropped_file_path,
+		                          var_name_buf, sizeof(var_name_buf), elf_load_error))
+		{
+			// User clicked Load - detach external references
+			for (size_t i = 0; i < plot.lines.size(); i++)
+			{
+				plot.lines[i].xsource = &plot.sys_sec;
+				plot.lines[i].ysource = nullptr;
+			}
+			ds.ctl_base.buf = nullptr;
+			ds.periph_base.buf = nullptr;
+			config = DarttConfig();
+
+			elf_parse_error_t err = elf_parser_load_config(
+				dropped_file_path.c_str(), var_name_buf, &config);
+
+			if (err == ELF_PARSE_SUCCESS)
+			{
+				if (config.nbytes > 0)
+				{
+					config.allocate_buffers();
+					ds.ctl_base.buf = config.ctl_buf.buf;
+					ds.ctl_base.len = config.ctl_buf.len;
+					ds.ctl_base.size = config.ctl_buf.size;
+					ds.periph_base.buf = config.periph_buf.buf;
+					ds.periph_base.len = config.periph_buf.len;
+					ds.periph_base.size = config.periph_buf.size;
+				}
+				elf_load_error.clear();
+				ImGui::CloseCurrentPopup();
+				printf("Loaded config from ELF: %s (symbol: %s)\n",
+				       dropped_file_path.c_str(), var_name_buf);
+			}
+			else
+			{
+				elf_load_error = elf_parse_error_str(err);
+			}
+		}
 
 		// Rebuild subscribed and dirty lists before read/write operations
 		collect_subscribed_fields(config.leaf_list, config.subscribed_list);

@@ -29,4 +29,10 @@ bool all_children_subscribed(const DarttField* root);
 
 void calculate_display_values(const std::vector<DarttField*> &leaf_list);
 
+// Render the ELF file load popup (modal).
+// Call every frame when *show is true. Returns true when user clicks "Load".
+bool render_elf_load_popup(bool* show, const std::string& elf_path,
+                           char* var_name_buf, size_t buf_size,
+                           std::string& error_msg);
+
 #endif // DARTT_UI_H
