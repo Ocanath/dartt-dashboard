@@ -441,7 +441,7 @@ static bool find_variable_die(Dwarf_Debug dbg, const char* name,
                 }
 				else
 				{
-					printf("Looked at %s, not correct\n", var_name.c_str());
+					// printf("Looked at %s, not correct\n", var_name.c_str());
 				}
             }
 

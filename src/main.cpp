@@ -245,8 +245,7 @@ int main(int argc, char* argv[])
 			ds.periph_base.buf = nullptr;
 			config = DarttConfig();
 
-			elf_parse_error_t err = elf_parser_load_config(
-				dropped_file_path.c_str(), var_name_buf, &config);
+			elf_parse_error_t err = elf_parser_load_config(dropped_file_path.c_str(), var_name_buf, &config);
 
 			if (err == ELF_PARSE_SUCCESS)
 			{
