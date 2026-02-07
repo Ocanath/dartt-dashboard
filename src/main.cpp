@@ -63,6 +63,7 @@ int main(int argc, char* argv[])
 	char var_name_buf[128] = "";
 	std::string elf_load_error;
 	bool pending_json_load = false;
+	std::string config_json_path = "";
 
 	// Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) 
@@ -126,11 +127,6 @@ int main(int argc, char* argv[])
 
 	// Load config (including plotting config)
 	DarttConfig config;
-	if (!load_dartt_config("config.json", config, plot))
-	{
-		printf("Failed to load config.json\n");
-		// Continue anyway - UI will be empty
-	}
 
 	// Allocate DARTT buffers
 	if (config.nbytes > 0) 
@@ -223,6 +219,7 @@ int main(int argc, char* argv[])
 					ds.periph_base.len = config.periph_buf.len;
 					ds.periph_base.size = config.periph_buf.size;
 				}
+				config_json_path = dropped_file_path;
 				printf("Loaded config from JSON: %s\n", dropped_file_path.c_str());
 			}
 			else
@@ -259,6 +256,13 @@ int main(int argc, char* argv[])
 					ds.periph_base.len = config.periph_buf.len;
 					ds.periph_base.size = config.periph_buf.size;
 				}
+				config_json_path = dropped_file_path.substr(0, dropped_file_path.size() - 4) + ".json";
+				elf_parser_ctx tmp_parser;
+				if (elf_parser_init(&tmp_parser, dropped_file_path.c_str()) == ELF_PARSE_SUCCESS)
+				{
+					elf_parser_generate_json(&tmp_parser, var_name_buf, config_json_path.c_str());
+					elf_parser_cleanup(&tmp_parser);
+				}
 				elf_load_error.clear();
 				ImGui::CloseCurrentPopup();
 				printf("Loaded config from ELF: %s (symbol: %s)\n",
@@ -275,7 +279,8 @@ int main(int argc, char* argv[])
 		collect_dirty_fields(config.leaf_list, config.dirty_list);
 
 		// WRITE: Send dirty fields to device
-		if (config.ctl_buf.buf && config.periph_buf.buf) {
+		if (config.ctl_buf.buf && config.periph_buf.buf) 
+		{
 			std::vector<MemoryRegion> write_queue = build_write_queue(config);
 			for (MemoryRegion& region : write_queue) {
 				sync_fields_to_ctl_buf(config, region);
@@ -325,7 +330,7 @@ int main(int argc, char* argv[])
 		calculate_display_values(config.leaf_list);		
 
 		// Render UI
-		bool value_edited = render_live_expressions(config, plot);
+		bool value_edited = render_live_expressions(config, plot, config_json_path);
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
 		render_plotting_menu(plot, config.root, config.subscribed_list);
@@ -334,7 +339,7 @@ int main(int argc, char* argv[])
 		//add new frame of data to each line, as determined by UI
 		for(int i = 0; i < plot.lines.size(); i++)
 		{
-			plot.lines[i].enqueue_data(plot.window_width, plot.window_width);
+			plot.lines[i].enqueue_data(plot.window_width);
 		}
 		
 

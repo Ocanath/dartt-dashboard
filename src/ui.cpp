@@ -789,6 +789,10 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		ImGui::SetNextItemWidth(60.0f);
 		ImGui::InputFloat("##yoffset", &line.yoffset, 0, 0, "%.2f");
 
+		ImGui::Text("Buffer Size");
+		ImGui::SameLine();
+		ImGui::InputScalar("##buffsersize", ImGuiDataType_U32, &line.enqueue_cap, 0, 0, "%d");
+
 		// Color picker
 		ImGui::Text("Color:");
 		ImGui::SameLine();
@@ -815,7 +819,7 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 	return true;
 }
 
-bool render_live_expressions(DarttConfig& config, Plotter& plot)
+bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path)
 {
     bool any_edited = false;
 
@@ -827,7 +831,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot)
     bool save_clicked = ImGui::Button("Save");
 	if(save_clicked)
 	{
-		save_dartt_config("config.json", config, plot);
+		save_dartt_config(config_json_path.c_str(), config, plot);
 	}
 
 	ImGui::SameLine();

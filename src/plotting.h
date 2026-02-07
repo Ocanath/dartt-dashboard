@@ -43,10 +43,13 @@ public:
 	float yscale;	//scale the display_ value by one additional scalar  for plotting
 	float yoffset;
 
+	//queue size
+	uint32_t enqueue_cap;
+
 	Line();
 	Line(int capacity);
 
-	bool enqueue_data(int enqueue_cap, int screen_width);
+	bool enqueue_data(int screen_width);
 	
 };
 

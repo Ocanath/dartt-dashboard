@@ -403,7 +403,7 @@ void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttF
         line_json["xoffset"] = line.xoffset;
         line_json["yscale"] = line.yscale;
         line_json["yoffset"] = line.yoffset;
-
+		line_json["enqueue_cap"] = line.enqueue_cap;
         lines_json.push_back(line_json);
     }
 
@@ -423,16 +423,20 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config, const P
     }
 
     json j;
-    try {
+    try 
+	{
         j = json::parse(f_in);
-    } catch (const json::parse_error& e) {
+    } 
+	catch (const json::parse_error& e) 
+	{
         fprintf(stderr, "Error: JSON parse error: %s\n", e.what());
         return false;
     }
     f_in.close();
 
     // Inject UI settings into type.fields
-    if (j.contains("type") && j["type"].contains("fields")) {
+    if (j.contains("type") && j["type"].contains("fields")) 
+	{
         inject_ui_settings_iterative(j["type"]["fields"], config.root.children);
     }
 
@@ -441,7 +445,8 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config, const P
 
     // Write back
     std::ofstream f_out(json_path);
-    if (!f_out.is_open()) {
+    if (!f_out.is_open()) 
+	{
         fprintf(stderr, "Error: Could not open config file for writing: %s\n", json_path);
         return false;
     }
@@ -578,7 +583,7 @@ void load_plotting_config(const json& j, Plotter& plot, const std::vector<DarttF
         line.xoffset = line_json.value("xoffset", 0.0f);
         line.yscale = line_json.value("yscale", 1.0f);
         line.yoffset = line_json.value("yoffset", 0.0f);
-
+		line.enqueue_cap = line_json.value("enqueue_cap", 2134);
         plot.lines.push_back(line);
     }
 
