@@ -40,8 +40,12 @@
 #include <string>
 
 // Helper: case-insensitive extension check
-static bool ends_with_ci(const std::string& str, const std::string& suffix) {
-	if (suffix.size() > str.size()) return false;
+static bool ends_with_ci(const std::string& str, const std::string& suffix) 
+{
+	if (suffix.size() > str.size()) 
+	{
+		return false;
+	}
 	std::string tail = str.substr(str.size() - suffix.size());
 	std::transform(tail.begin(), tail.end(), tail.begin(), ::tolower);
 	return tail == suffix;
