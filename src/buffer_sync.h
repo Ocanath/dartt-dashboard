@@ -11,8 +11,6 @@ struct MemoryRegion {
 };
 
 
-// Auto-subscribe/dirty sibling elements within the same 4-byte word
-void align_sub_word_access(std::vector<DarttField*>& leaf_list);
 
 // Collect subscribed/dirty fields into output vectors
 void collect_subscribed_fields(const std::vector<DarttField*> &leaf_list, std::vector<DarttField*>& out);

@@ -274,9 +274,6 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		// Auto-align sub-word subscriptions/writes to 4-byte boundaries
-		align_sub_word_access(config.leaf_list);
-
 		// Rebuild subscribed and dirty lists before read/write operations
 		collect_subscribed_fields(config.leaf_list, config.subscribed_list);
 		collect_dirty_fields(config.leaf_list, config.dirty_list);

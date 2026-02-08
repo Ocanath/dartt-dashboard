@@ -33,33 +33,6 @@ void collect_subscribed_fields(const std::vector<DarttField*> &leaf_list, std::v
 	}
 }
 
-// Auto-subscribe/dirty sibling elements within the same 4-byte aligned word.
-// When a sub-word field (nbytes < 4) is subscribed or dirty, all leaves
-// between the aligned start and that field must also be subscribed (and
-// dirty if the original is dirty) so the coalesced region has valid data.
-void align_sub_word_access(std::vector<DarttField*>& leaf_list) 
-{
-    for (size_t i = 0; i < leaf_list.size(); i++) 
-	{
-        DarttField* f = leaf_list[i];
-        if ((f->subscribed || f->dirty) && f->nbytes < 4) 
-		{
-            uint32_t aligned_start = f->byte_offset & ~3u;
-            for (size_t j = 0; j < leaf_list.size(); j++) 
-			{
-                DarttField* g = leaf_list[j];
-                if (g != f && g->byte_offset >= aligned_start && g->byte_offset + g->nbytes <= f->byte_offset) 
-				{
-                    g->subscribed = true;
-                    if (f->dirty) 
-					{
-						g->dirty = true;
-					}
-                }
-            }
-        }
-    }
-}
 
 // Align offset down to 32-bit boundary
 static uint32_t align_down_32(uint32_t offset) 
