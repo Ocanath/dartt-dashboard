@@ -44,7 +44,10 @@ FieldType parse_field_type(const std::string& type_str) {
 	{
 		return FieldType::INT16;
 	}
-    if (type_str == "uint16_t" || type_str == "unsigned short" || type_str == "unsigned short int") return FieldType::UINT16;
+    if (type_str == "uint16_t" || type_str == "unsigned short" || type_str == "unsigned short int") 
+	{
+		return FieldType::UINT16;
+	}
     if (type_str == "int32_t" || type_str == "int" || type_str == "long" || type_str == "long int") return FieldType::INT32;
     if (type_str == "uint32_t" || type_str == "unsigned int" || type_str == "unsigned long" || type_str == "unsigned long int" || type_str == "long unsigned int") return FieldType::UINT32;
     if (type_str == "int64_t" || type_str == "long long" || type_str == "long long int") return FieldType::INT64;
@@ -246,7 +249,7 @@ void expand_array_elements(DarttField& root)
 
         if (f->array_size > 0 && f->children.empty() && f->element_nbytes > 0) 
 		{
-            FieldType elem_type = f->type;
+            FieldType elem_type = parse_field_type(f->type_name);
 
             f->children.resize(f->array_size);
             for (uint32_t i = 0; i < f->array_size; i++) 

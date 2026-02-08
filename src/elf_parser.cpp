@@ -551,8 +551,11 @@ static std::unique_ptr<TypeInfo> resolve_type_iterative(Dwarf_Debug dbg, Dwarf_O
                         /* Push work to resolve underlying type into same result */
                         stack.emplace_back(WORK_RESOLVE_TYPE, underlying_offset,
                                           work.result, 0, 0);
-                        /* We'll set typedef after underlying is resolved */
-                        work.result->typedef_name = typedef_name;
+                        /* Preserve outermost typedef name through chains */
+                        if (work.result->typedef_name.empty())
+						{
+                            work.result->typedef_name = typedef_name;
+						}
                     } 
 					else 
 					{
