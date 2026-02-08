@@ -1,4 +1,4 @@
-# dartt-dashboard
+# Dartt Dashboard
 
 ## Data visualization for DARTT devices
 
