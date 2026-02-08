@@ -214,6 +214,45 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
 }
 
 /*
+Expand primitive arrays into individual element children.
+For any field where array_size > 0 && children.empty() && element_nbytes > 0,
+creates array_size children with [i] names and correct offsets/types.
+*/
+void expand_array_elements(DarttField& root) 
+{
+    std::vector<DarttField*> stack;
+    stack.push_back(&root);
+    while (!stack.empty()) 
+	{
+        DarttField* f = stack.back();
+        stack.pop_back();
+
+        if (f->array_size > 0 && f->children.empty() && f->element_nbytes > 0) 
+		{
+            FieldType elem_type = parse_field_type(f->type_name);
+
+            f->children.resize(f->array_size);
+            for (uint32_t i = 0; i < f->array_size; i++) 
+			{
+                DarttField& elem = f->children[i];
+                elem.name = "[" + std::to_string(i) + "]";
+                elem.byte_offset = f->byte_offset + i * f->element_nbytes;
+                elem.dartt_offset = elem.byte_offset / 4;
+                elem.nbytes = f->element_nbytes;
+                elem.type = elem_type;
+                elem.type_name = f->type_name;
+            }
+        }
+
+        // Continue DFS into children (including newly created ones)
+        for (size_t i = f->children.size(); i > 0; i--) 
+		{
+            stack.push_back(&f->children[i - 1]);
+        }
+    }
+}
+
+/*
 Function to collect a list of all leaves. One-time depth first search traversal
 for leaf-only operations
 */
@@ -278,6 +317,7 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
     printf("Loaded config: symbol=%s, address=0x%08X, nbytes=%u, nwords=%u\n",
            config.symbol.c_str(), config.address, config.nbytes, config.nwords);
 
+    expand_array_elements(config.root);
     collect_leaves(config.root, config.leaf_list);
 
     // Load plotting config if plotter provided

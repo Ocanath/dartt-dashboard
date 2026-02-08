@@ -158,6 +158,9 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
 // Parse plotting config from json, if present.
 void load_plotting_config(const nlohmann::json& j, Plotter& plot, const std::vector<DarttField*>& leaf_list);
 
+// Expand primitive arrays into individual element children
+void expand_array_elements(DarttField& root);
+
 // Collect a list of all leaves
 void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list);
 

@@ -952,7 +952,8 @@ elf_parse_error_t elf_parser_load_config(const char* elf_path,
     config->root.name = symbol_name;
     type_info_to_dartt_field(*type_info, config->root, 0);
 
-    /* Collect leaves */
+    /* Expand primitive arrays into element children, then collect leaves */
+    expand_array_elements(config->root);
     collect_leaves(config->root, config->leaf_list);
 
     printf("Loaded config from ELF: symbol=%s, address=0x%08X, nbytes=%u, nwords=%u\n",
