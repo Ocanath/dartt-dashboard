@@ -246,7 +246,7 @@ void expand_array_elements(DarttField& root)
 
         if (f->array_size > 0 && f->children.empty() && f->element_nbytes > 0) 
 		{
-            FieldType elem_type = parse_field_type(f->type_name);
+            FieldType elem_type = f->type;
 
             f->children.resize(f->array_size);
             for (uint32_t i = 0; i < f->array_size; i++) 

@@ -783,10 +783,9 @@ static std::unique_ptr<TypeInfo> resolve_type_iterative(Dwarf_Debug dbg, Dwarf_O
 
             /* Get the member's type */
             Dwarf_Off type_offset;
-            if (get_type_ref_offset(dbg, die, &type_offset)) \
+            if (get_type_ref_offset(dbg, die, &type_offset)) 
 			{
-                stack.emplace_back(WORK_RESOLVE_TYPE, type_offset,
-                                  field.type_info.get(), 0, 0);
+                stack.emplace_back(WORK_RESOLVE_TYPE, type_offset, field.type_info.get(), 0, 0);
             }
 
             dwarf_dealloc_die(die);
@@ -801,31 +800,40 @@ static std::unique_ptr<TypeInfo> resolve_type_iterative(Dwarf_Debug dbg, Dwarf_O
  * ============================================================================ */
 
 /* Get a simple type name from TypeInfo */
-static std::string get_simple_type_name(const TypeInfo& ti) {
-    if (!ti.typedef_name.empty()) {
+static std::string get_simple_type_name(const TypeInfo& ti) 
+{
+    if (!ti.typedef_name.empty()) 
+	{
         return ti.typedef_name;
     }
 
-    if (ti.type == "pointer") {
-        if (ti.pointee) {
+    if (ti.type == "pointer") 
+	{
+        if (ti.pointee) 
+		{
             return get_simple_type_name(*ti.pointee) + "*";
         }
         return "void*";
     }
 
-    if (ti.type == "array") {
+    if (ti.type == "array") 
+	{
         std::string result;
-        if (!ti.fields.empty() && ti.fields[0].type_info) {
+        if (!ti.fields.empty() && ti.fields[0].type_info) 
+		{
             result = get_simple_type_name(*ti.fields[0].type_info);
         }
-        for (uint32_t d : ti.dimensions) {
+        for (uint32_t d : ti.dimensions) 
+		{
             result += "[" + std::to_string(d) + "]";
         }
         return result;
     }
 
-    if (ti.type == "struct" || ti.type == "union") {
-        if (!ti.name.empty()) {
+    if (ti.type == "struct" || ti.type == "union") 
+	{
+        if (!ti.name.empty()) 
+		{
             return ti.type + " " + ti.name;
         }
         return ti.type;
@@ -852,12 +860,13 @@ struct ConvertWork {
         : type_info(ti), field_info(fi), out_field(out), base_byte_offset(base) {}
 };
 
-static void type_info_to_dartt_field(const TypeInfo& root_ti, DarttField& root_field,
-                                     uint32_t base_offset = 0) {
+static void type_info_to_dartt_field(const TypeInfo& root_ti, DarttField& root_field, uint32_t base_offset = 0) 
+{
     std::vector<ConvertWork> stack;
     stack.emplace_back(&root_ti, nullptr, &root_field, base_offset);
 
-    while (!stack.empty()) {
+    while (!stack.empty()) 
+	{
         ConvertWork work = std::move(stack.back());
         stack.pop_back();
 
@@ -865,7 +874,8 @@ static void type_info_to_dartt_field(const TypeInfo& root_ti, DarttField& root_f
         DarttField& field = *work.out_field;
         uint32_t abs_byte_offset = work.base_byte_offset;
 
-        if (work.field_info) {
+        if (work.field_info) 
+		{
             field.name = work.field_info->name;
             abs_byte_offset = work.base_byte_offset + work.field_info->byte_offset;
         }
@@ -876,29 +886,34 @@ static void type_info_to_dartt_field(const TypeInfo& root_ti, DarttField& root_f
         field.type_name = get_simple_type_name(ti);
         field.type = parse_field_type(ti.type);
 
-        if (ti.type == "struct" || ti.type == "union") {
+        if (ti.type == "struct" || ti.type == "union") 
+		{
             /* Pre-allocate children */
             field.children.resize(ti.fields.size());
             /* Push in reverse order */
-            for (size_t i = ti.fields.size(); i > 0; i--) {
-                if (ti.fields[i-1].type_info) {
-                    stack.emplace_back(ti.fields[i-1].type_info.get(), &ti.fields[i-1],
-                                      &field.children[i-1], abs_byte_offset);
+            for (size_t i = ti.fields.size(); i > 0; i--) 
+			{
+                if (ti.fields[i-1].type_info) 
+				{
+                    stack.emplace_back(ti.fields[i-1].type_info.get(), &ti.fields[i-1],  &field.children[i-1], abs_byte_offset);
                 }
             }
         }
-        else if (ti.type == "array") {
+        else if (ti.type == "array") 
+		{
             field.array_size = ti.total_elements;
-            if (!ti.fields.empty() && ti.fields[0].type_info) {
+            if (!ti.fields.empty() && ti.fields[0].type_info) 
+			{
                 field.element_nbytes = ti.fields[0].type_info->size;
 
                 /* If array of structs/unions, create one child as template */
-                if (ti.fields[0].type_info->type == "struct" ||
-                    ti.fields[0].type_info->type == "union") {
+                if (ti.fields[0].type_info->type == "struct" || ti.fields[0].type_info->type == "union") 
+				{
                     field.children.resize(1);
-                    stack.emplace_back(ti.fields[0].type_info.get(), nullptr,
-                                      &field.children[0], abs_byte_offset);
-                } else {
+                    stack.emplace_back(ti.fields[0].type_info.get(), nullptr, &field.children[0], abs_byte_offset);
+                }
+				else
+				{
                     /* Primitive array - set type from element */
                     field.type = parse_field_type(ti.fields[0].type_info->type);
                     field.type_name = get_simple_type_name(*ti.fields[0].type_info);
