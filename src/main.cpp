@@ -2,6 +2,7 @@
 
 // Platform headers (must come before GL on Windows)
 #ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
 #endif
 

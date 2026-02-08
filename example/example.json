@@ -1,0 +1,177 @@
+{
+  "address": "0x20000120",
+  "address_int": 536871200,
+  "nbytes": 88,
+  "nwords": 22,
+  "symbol": "gl_example",
+  "type": {
+    "fields": [
+      {
+        "byte_offset": 0,
+        "dartt_offset": 0,
+        "name": "a",
+        "type_info": {
+          "encoding": "float",
+          "size": 4,
+          "type": "float"
+        }
+      },
+      {
+        "byte_offset": 4,
+        "dartt_offset": 1,
+        "name": "b",
+        "type_info": {
+          "encoding": "signed",
+          "size": 4,
+          "type": "long int",
+          "typedef": "int32_t"
+        }
+      },
+      {
+        "byte_offset": 8,
+        "dartt_offset": 2,
+        "name": "c",
+        "type_info": {
+          "encoding": "unsigned",
+          "size": 4,
+          "type": "long unsigned int",
+          "typedef": "uint32_t"
+        }
+      },
+      {
+        "byte_offset": 12,
+        "dartt_offset": 3,
+        "name": "d1",
+        "type_info": {
+          "encoding": "signed",
+          "size": 2,
+          "type": "short int",
+          "typedef": "int16_t"
+        }
+      },
+      {
+        "byte_offset": 14,
+        "dartt_offset": 3,
+        "name": "d2",
+        "type_info": {
+          "encoding": "signed",
+          "size": 2,
+          "type": "short int",
+          "typedef": "int16_t"
+        },
+        "unaligned": true
+      },
+      {
+        "byte_offset": 16,
+        "dartt_offset": 4,
+        "name": "exarr",
+        "type_info": {
+          "dimensions": [
+            8
+          ],
+          "element_type": {
+            "encoding": "unsigned_char",
+            "size": 1,
+            "type": "unsigned char",
+            "typedef": "uint8_t"
+          },
+          "total_elements": 8,
+          "type": "array"
+        }
+      },
+      {
+        "byte_offset": 24,
+        "dartt_offset": 6,
+        "name": "thing1",
+        "type_info": {
+          "fields": [
+            {
+              "byte_offset": 24,
+              "dartt_offset": 6,
+              "name": "v",
+              "type_info": {
+                "dimensions": [
+                  3
+                ],
+                "element_type": {
+                  "encoding": "float",
+                  "size": 4,
+                  "type": "float"
+                },
+                "total_elements": 3,
+                "type": "array"
+              }
+            },
+            {
+              "byte_offset": 36,
+              "dartt_offset": 9,
+              "name": "val",
+              "type_info": {
+                "encoding": "signed",
+                "size": 4,
+                "type": "long int",
+                "typedef": "int32_t"
+              }
+            }
+          ],
+          "size": 16,
+          "struct_name": "mything_t",
+          "type": "struct",
+          "typedef": "mything_t"
+        }
+      },
+      {
+        "byte_offset": 40,
+        "dartt_offset": 10,
+        "name": "thing_array",
+        "type_info": {
+          "dimensions": [
+            3
+          ],
+          "element_type": {
+            "fields": [
+              {
+                "byte_offset": 40,
+                "dartt_offset": 10,
+                "name": "v",
+                "type_info": {
+                  "dimensions": [
+                    3
+                  ],
+                  "element_type": {
+                    "encoding": "float",
+                    "size": 4,
+                    "type": "float"
+                  },
+                  "total_elements": 3,
+                  "type": "array"
+                }
+              },
+              {
+                "byte_offset": 52,
+                "dartt_offset": 13,
+                "name": "val",
+                "type_info": {
+                  "encoding": "signed",
+                  "size": 4,
+                  "type": "long int",
+                  "typedef": "int32_t"
+                }
+              }
+            ],
+            "size": 16,
+            "struct_name": "mything_t",
+            "type": "struct",
+            "typedef": "mything_t"
+          },
+          "total_elements": 3,
+          "type": "array"
+        }
+      }
+    ],
+    "size": 88,
+    "struct_name": "example_dartt_t",
+    "type": "struct",
+    "typedef": "example_dartt_t"
+  }
+}
