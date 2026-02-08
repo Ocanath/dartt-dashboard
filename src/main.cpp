@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
 	plot.init(width, height);
 	
 	// Serial connection
-	int rc = serial.autoconnect(921600);
+	int rc = serial.autoconnect(230400);
 	if (rc != true) 
 	{
 		printf("Warning - no serial connection made\n");
@@ -229,8 +229,7 @@ int main(int argc, char* argv[])
 		}
 
 		// --- Drag-and-drop: ELF popup + load ---
-		if (render_elf_load_popup(&show_elf_popup, dropped_file_path,
-		                          var_name_buf, sizeof(var_name_buf), elf_load_error))
+		if (render_elf_load_popup(&show_elf_popup, dropped_file_path, var_name_buf, sizeof(var_name_buf), elf_load_error))
 		{
 			// User clicked Load - detach external references
 			for (size_t i = 0; i < plot.lines.size(); i++)
@@ -330,7 +329,7 @@ int main(int argc, char* argv[])
 		calculate_display_values(config.leaf_list);		
 
 		// Render UI
-		bool value_edited = render_live_expressions(config, plot, config_json_path);
+		bool value_edited = render_live_expressions(config, plot, config_json_path, serial, &ds);
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
 		render_plotting_menu(plot, config.root, config.subscribed_list);

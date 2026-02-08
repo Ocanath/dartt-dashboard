@@ -819,11 +819,36 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 	return true;
 }
 
-bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path)
+bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path, Serial & ser, dartt_sync_t * ds)
 {
     bool any_edited = false;
 
     ImGui::Begin("Live Expressions");
+
+	ImGui::Text("Dartt Address: ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(50);
+	ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &ds->address);
+	ImGui::SameLine();
+	ImGui::Text("Baudrate: ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(50);
+	uint32_t baudrate = ser.get_baud_rate();
+	ImGui::InputScalar("##baudrate", ImGuiDataType_U32, &baudrate);
+	if(ImGui::IsItemDeactivatedAfterEdit())
+	{
+		printf("Disconnecting serial...\n");
+		ser.disconnect();
+		printf("done.\n Reconnecting with baudrate %d\n", baudrate);
+		if(ser.autoconnect(baudrate))
+		{
+			printf("Success. Serial connected\n");
+		}
+		else
+		{
+			printf("Serial failed to connect\n");
+		}
+	}
 
     // Show config info
     ImGui::Text("Symbol: %s", config.symbol.c_str());
