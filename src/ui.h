@@ -14,7 +14,7 @@ void shutdown_imgui();
 
 // Render the live expressions panel
 // Returns true if any value was edited (triggers write)
-bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path, Serial & ser, dartt_sync_t * ds);
+bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path, Serial & ser, dartt_sync_t & ds);
 
 // Render the plot settings menu with tree selectors for X/Y sources
 bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<DarttField*> &subscribed_list);

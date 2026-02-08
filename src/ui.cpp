@@ -819,7 +819,7 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 	return true;
 }
 
-bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path, Serial & ser, dartt_sync_t * ds)
+bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path, Serial & ser, dartt_sync_t & ds)
 {
     bool any_edited = false;
 
@@ -828,7 +828,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 	ImGui::Text("Dartt Address: ");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(50);
-	ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &ds->address);
+	ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &ds.address);
 	ImGui::SameLine();
 	ImGui::Text("Baudrate: ");
 	ImGui::SameLine();
@@ -856,7 +856,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
     bool save_clicked = ImGui::Button("Save");
 	if(save_clicked)
 	{
-		save_dartt_config(config_json_path.c_str(), config, plot);
+		save_dartt_config(config_json_path.c_str(), config, plot, ser, ds);
 	}
 
 	ImGui::SameLine();

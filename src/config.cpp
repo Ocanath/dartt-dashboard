@@ -300,7 +300,7 @@ void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list)
 }
 
 // Main config loader
-bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot)
+bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot, Serial & serial, dartt_sync_t& ds)
 {
     // Open and parse JSON file
     std::ifstream f(json_path);
@@ -321,6 +321,28 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
         return false;
     }
 
+	if(j.contains("serial_settings") && j["serial_settings"].is_object())
+	{
+		const json & ser_settings = j["serial_settings"];
+	
+		ds.address = ser_settings.value("dartt_serial_address", 0);
+		uint32_t baudrate = ser_settings.value("baudrate", 921600);
+		if(baudrate != serial.get_baud_rate())
+		{
+			printf("Disconnecting serial...\n");
+			serial.disconnect();
+			printf("done.\n Reconnecting with baudrate %d\n", baudrate);
+			if(serial.autoconnect(baudrate))
+			{
+				printf("Success. Serial connected\n");
+			}
+			else
+			{
+				printf("Serial failed to connect\n");
+			}
+		}	
+	}
+	
     // Parse top-level fields
     config.symbol = j.value("symbol", "");
     config.address_str = j.value("address", "");
@@ -378,6 +400,14 @@ static void inject_ui_settings_iterative(json& root_json, const std::vector<Dart
             }
         }
     }
+}
+
+void save_serial_settings(json & j, Serial & serial, const dartt_sync_t & ds)
+{
+	json serial_settings;
+	serial_settings["dartt_serial_address"] = ds.address;
+	serial_settings["baudrate"] = serial.get_baud_rate();
+	j["serial_settings"] = serial_settings;
 }
 
 // Save plotting config to JSON
@@ -473,7 +503,7 @@ void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttF
 
 // Save config to JSON file (only adds ui objects, preserves everything else)
 // If plot is provided, also saves plotting config
-bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot) 
+bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot, Serial & serial, dartt_sync_t& ds) 
 {
     // Read original JSON
     std::ifstream f_in(json_path);
@@ -502,6 +532,8 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config, const P
 
     // Save plotting config if plotter provided
 	save_plotting_config(j, plot, config.leaf_list);
+
+	save_serial_settings(j, serial, ds);
 
     // Write back
     std::ofstream f_out(json_path);

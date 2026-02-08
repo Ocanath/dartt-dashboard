@@ -8,6 +8,7 @@
 #include "dartt.h"
 #include "plotting.h"
 #include <nlohmann/json.hpp>
+#include "serial.h"
 
 // Field type classification for parsing and display
 enum class FieldType {
@@ -152,7 +153,7 @@ struct DarttConfig
 // Parse config from JSON file
 // If plot is provided, also loads plotting config
 // Returns true on success, false on error (error message printed to stderr)
-bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot);
+bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot, Serial & serial, dartt_sync_t& ds);
 
 
 // Parse plotting config from json, if present.
@@ -170,7 +171,7 @@ class Plotter;
 // Save config to JSON file (preserves UI settings)
 // If plot is provided, also saves plotting config
 // Returns true on success, false on error (error message printed to stderr)
-bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot);
+bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot, Serial & serial, dartt_sync_t& ds);
 
 // Helper: get FieldType from type string
 FieldType parse_field_type(const std::string& type_str);

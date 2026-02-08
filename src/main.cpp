@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
 	// Setup dartt_sync
 	dartt_sync_t ds;
 	init_ds(&ds);
-	ds.address = 0x05; // TODO: make configurable
+	ds.address = 0x0; // TODO: make configurable
 
 	if (config.ctl_buf.buf && config.periph_buf.buf) 
 	{
@@ -207,7 +207,7 @@ int main(int argc, char* argv[])
 			ds.periph_base.buf = nullptr;
 			config = DarttConfig();
 
-			if (load_dartt_config(dropped_file_path.c_str(), config, plot))
+			if (load_dartt_config(dropped_file_path.c_str(), config, plot, serial, ds))
 			{
 				if (config.nbytes > 0)
 				{
@@ -329,7 +329,7 @@ int main(int argc, char* argv[])
 		calculate_display_values(config.leaf_list);		
 
 		// Render UI
-		bool value_edited = render_live_expressions(config, plot, config_json_path, serial, &ds);
+		bool value_edited = render_live_expressions(config, plot, config_json_path, serial, ds);
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
 		render_plotting_menu(plot, config.root, config.subscribed_list);
