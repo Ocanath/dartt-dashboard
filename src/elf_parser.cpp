@@ -469,24 +469,27 @@ static bool find_variable_die(Dwarf_Debug dbg, const char* name,
 }
 
 /* Resolve a type given its DIE offset - iterative implementation */
-static std::unique_ptr<TypeInfo> resolve_type_iterative(Dwarf_Debug dbg, Dwarf_Off start_offset,
-                                                        TypeCache& cache) {
+static std::unique_ptr<TypeInfo> resolve_type_iterative(Dwarf_Debug dbg, Dwarf_Off start_offset, TypeCache& cache) 
+{
     std::vector<DwarfWork> stack;
     std::unique_ptr<TypeInfo> root_result = std::make_unique<TypeInfo>();
 
     stack.emplace_back(WORK_RESOLVE_TYPE, start_offset, root_result.get(), 0, 0);
 
-    while (!stack.empty()) {
+    while (!stack.empty()) 
+	{
         DwarfWork work = std::move(stack.back());
         stack.pop_back();
 
         Dwarf_Error err = nullptr;
         Dwarf_Die die = nullptr;
 
-        if (work.type == WORK_RESOLVE_TYPE) {
+        if (work.type == WORK_RESOLVE_TYPE) 
+		{
             /* Check cache first */
             TypeInfo* cached = cache.get(work.die_offset);
-            if (cached) {
+            if (cached) 
+			{
                 /* Copy cached type info */
                 work.result->type = cached->type;
                 work.result->name = cached->name;
@@ -504,7 +507,8 @@ static std::unique_ptr<TypeInfo> resolve_type_iterative(Dwarf_Debug dbg, Dwarf_O
 
             /* Get DIE at offset */
             int res = dwarf_offdie_b(dbg, work.die_offset, true, &die, &err);
-            if (res != DW_DLV_OK) {
+            if (res != DW_DLV_OK) 
+			{
                 if (err) dwarf_dealloc_error(dbg, err);
                 work.result->type = "unknown";
                 continue;
@@ -549,7 +553,9 @@ static std::unique_ptr<TypeInfo> resolve_type_iterative(Dwarf_Debug dbg, Dwarf_O
                                           work.result, 0, 0);
                         /* We'll set typedef after underlying is resolved */
                         work.result->typedef_name = typedef_name;
-                    } else {
+                    } 
+					else 
+					{
                         work.result->type = typedef_name;
                     }
                     break;
@@ -754,24 +760,31 @@ static std::unique_ptr<TypeInfo> resolve_type_iterative(Dwarf_Debug dbg, Dwarf_O
 
             /* Check for bitfields */
             Dwarf_Unsigned bit_size = 0;
-            if (get_die_unsigned(dbg, die, DW_AT_bit_size, &bit_size)) {
+            if (get_die_unsigned(dbg, die, DW_AT_bit_size, &bit_size)) 
+			{
                 field.bit_size = (int)bit_size;
                 Dwarf_Unsigned bit_offset = 0;
                 Dwarf_Unsigned data_bit_offset = 0;
-                if (get_die_unsigned(dbg, die, DW_AT_data_bit_offset, &data_bit_offset)) {
+                if (get_die_unsigned(dbg, die, DW_AT_data_bit_offset, &data_bit_offset)) 
+				{
                     field.bit_offset = (int)data_bit_offset;
-                } else if (get_die_unsigned(dbg, die, DW_AT_bit_offset, &bit_offset)) {
+                } 
+				else if (get_die_unsigned(dbg, die, DW_AT_bit_offset, &bit_offset)) 
+				{
                     /* Convert from big-endian bit numbering */
                     field.bit_offset = (int)bit_offset;  /* Simplified */
                 }
-            } else {
+            } 
+			else 
+			{
                 field.bit_size = -1;
                 field.bit_offset = 0;
             }
 
             /* Get the member's type */
             Dwarf_Off type_offset;
-            if (get_type_ref_offset(dbg, die, &type_offset)) {
+            if (get_type_ref_offset(dbg, die, &type_offset)) \
+			{
                 stack.emplace_back(WORK_RESOLVE_TYPE, type_offset,
                                   field.type_info.get(), 0, 0);
             }
@@ -899,18 +912,24 @@ static void type_info_to_dartt_field(const TypeInfo& root_ti, DarttField& root_f
  * Public API Implementation
  * ============================================================================ */
 
-elf_parse_error_t elf_parser_load_config(const char* elf_path,
-                                         const char* symbol_name,
-                                         DarttConfig* config) {
-    if (!elf_path || !symbol_name || !config) return ELF_PARSE_ERROR;
+elf_parse_error_t elf_parser_load_config(const char* elf_path, const char* symbol_name, DarttConfig* config) 
+{
+    if (!elf_path || !symbol_name || !config)
+	{
+		 return ELF_PARSE_ERROR;
+	}
 
     elf_parser_ctx parser;
     elf_parse_error_t err = elf_parser_init(&parser, elf_path);
-    if (err != ELF_PARSE_SUCCESS) return err;
+    if (err != ELF_PARSE_SUCCESS)
+	{
+		 return err;
+	}
 
     /* Get symbol address and size */
     uint32_t sym_addr = 0, sym_size = 0;
-    if (!elf_parser_find_symbol(&parser, symbol_name, &sym_addr, &sym_size)) {
+    if (!elf_parser_find_symbol(&parser, symbol_name, &sym_addr, &sym_size)) 
+	{
         elf_parser_cleanup(&parser);
         return ELF_PARSE_SYMBOL_NOT_FOUND;
     }
@@ -922,7 +941,8 @@ elf_parse_error_t elf_parser_load_config(const char* elf_path,
     config->address_str = addr_buf;
 
     /* Check for DWARF info */
-    if (!parser.dwarf_initialized) {
+    if (!parser.dwarf_initialized) 
+	{
         elf_parser_cleanup(&parser);
         return ELF_PARSE_NO_DWARF;
     }
@@ -930,7 +950,8 @@ elf_parse_error_t elf_parser_load_config(const char* elf_path,
     /* Find the variable in DWARF */
     Dwarf_Die var_die = nullptr;
     Dwarf_Off type_offset = 0;
-    if (!find_variable_die(parser.dbg, symbol_name, &var_die, &type_offset)) {
+    if (!find_variable_die(parser.dbg, symbol_name, &var_die, &type_offset)) 
+	{
         elf_parser_cleanup(&parser);
         return ELF_PARSE_NO_DEBUG_INFO;
     }
@@ -938,7 +959,8 @@ elf_parse_error_t elf_parser_load_config(const char* elf_path,
     /* Resolve the type */
     TypeCache cache;
     std::unique_ptr<TypeInfo> type_info = resolve_type_iterative(parser.dbg, type_offset, cache);
-    if (!type_info) {
+    if (!type_info) 
+	{
         if (var_die) dwarf_dealloc_die(var_die);
         elf_parser_cleanup(&parser);
         return ELF_PARSE_TYPE_ERROR;
@@ -973,7 +995,8 @@ elf_parse_error_t elf_parser_load_config(const char* elf_path,
 using json = nlohmann::json;
 
 /* Convert TypeInfo to JSON (recursive helper for internal structure) */
-static json type_info_to_json(const TypeInfo& ti) {
+static json type_info_to_json(const TypeInfo& ti) 
+{
     json j;
     j["type"] = ti.type;
 
@@ -989,20 +1012,25 @@ static json type_info_to_json(const TypeInfo& ti) {
         j["encoding"] = ti.encoding;
     }
 
-    if (ti.type == "struct" || ti.type == "union") {
-        if (!ti.name.empty()) {
+    if (ti.type == "struct" || ti.type == "union") 
+	{
+        if (!ti.name.empty()) 
+		{
             j[ti.type + "_name"] = ti.name;
         }
         json fields = json::array();
-        for (size_t i = 0; i < ti.fields.size(); i++) {
+        for (size_t i = 0; i < ti.fields.size(); i++) 
+		{
             const FieldInfo& f = ti.fields[i];
             json fj;
             fj["name"] = f.name;
             fj["byte_offset"] = f.byte_offset;
-            if (f.type_info) {
+            if (f.type_info) 
+			{
                 fj["type_info"] = type_info_to_json(*f.type_info);
             }
-            if (f.bit_size >= 0) {
+            if (f.bit_size >= 0) 
+			{
                 fj["bit_size"] = f.bit_size;
                 fj["bit_offset"] = f.bit_offset;
             }
@@ -1010,10 +1038,12 @@ static json type_info_to_json(const TypeInfo& ti) {
         }
         j["fields"] = fields;
     }
-    else if (ti.type == "array") {
+    else if (ti.type == "array") 
+	{
         j["dimensions"] = ti.dimensions;
         j["total_elements"] = ti.total_elements;
-        if (!ti.fields.empty() && ti.fields[0].type_info) {
+        if (!ti.fields.empty() && ti.fields[0].type_info) 
+		{
             j["element_type"] = type_info_to_json(*ti.fields[0].type_info);
         }
     }
@@ -1044,33 +1074,42 @@ static json type_info_to_json(const TypeInfo& ti) {
 }
 
 /* Add absolute dartt_offset to JSON (modifies in place) */
-static void compute_json_dartt_offsets(json& type_json, uint32_t base_offset) {
+static void compute_json_dartt_offsets(json& type_json, uint32_t base_offset) 
+{
     std::string type = type_json.value("type", "");
 
-    if (type == "struct" || type == "union") {
-        if (type_json.contains("fields")) {
+    if (type == "struct" || type == "union") 
+	{
+        if (type_json.contains("fields")) 
+		{
             json& fields_array = type_json["fields"];
-            for (size_t i = 0; i < fields_array.size(); i++) {
+            for (size_t i = 0; i < fields_array.size(); i++) 
+			{
                 json& field = fields_array[i];
                 uint32_t rel_offset = field.value("byte_offset", 0u);
                 uint32_t abs_offset = base_offset + rel_offset;
                 field["byte_offset"] = abs_offset;
                 field["dartt_offset"] = abs_offset / 4;
 
-                if (abs_offset % 4 != 0) {
+                if (abs_offset % 4 != 0) 
+				{
                     field["unaligned"] = true;
                 }
 
-                if (field.contains("type_info")) {
+                if (field.contains("type_info")) 
+				{
                     compute_json_dartt_offsets(field["type_info"], abs_offset);
                 }
             }
         }
     }
-    else if (type == "array") {
-        if (type_json.contains("element_type")) {
+    else if (type == "array") 
+	{
+        if (type_json.contains("element_type")) 
+		{
             std::string elem_type = type_json["element_type"].value("type", "");
-            if (elem_type == "struct" || elem_type == "union") {
+            if (elem_type == "struct" || elem_type == "union") 
+			{
                 compute_json_dartt_offsets(type_json["element_type"], base_offset);
             }
         }

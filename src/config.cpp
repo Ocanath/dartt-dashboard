@@ -24,11 +24,26 @@ struct InjectWork {
 //TODO: cross reference type with nbytes to confirm that the label matches the expected size.
 FieldType parse_field_type(const std::string& type_str) {
     // Check for common type names
-    if (type_str == "float") return FieldType::FLOAT;
-    if (type_str == "double") return FieldType::DOUBLE;
-    if (type_str == "int8_t" || type_str == "signed char") return FieldType::INT8;
-    if (type_str == "uint8_t" || type_str == "unsigned char") return FieldType::UINT8;
-    if (type_str == "int16_t" || type_str == "short" || type_str == "short int") return FieldType::INT16;
+    if (type_str == "float")
+	{
+		return FieldType::FLOAT;
+	}
+    if (type_str == "double") 
+	{
+		return FieldType::DOUBLE;
+	}
+    if (type_str == "int8_t" || type_str == "signed char") 
+	{
+		return FieldType::INT8;
+	}
+    if (type_str == "uint8_t" || type_str == "unsigned char")
+	{ 
+		return FieldType::UINT8;
+	}
+    if (type_str == "int16_t" || type_str == "short" || type_str == "short int") 
+	{
+		return FieldType::INT16;
+	}
     if (type_str == "uint16_t" || type_str == "unsigned short" || type_str == "unsigned short int") return FieldType::UINT16;
     if (type_str == "int32_t" || type_str == "int" || type_str == "long" || type_str == "long int") return FieldType::INT32;
     if (type_str == "uint32_t" || type_str == "unsigned int" || type_str == "unsigned long" || type_str == "unsigned long int" || type_str == "long unsigned int") return FieldType::UINT32;
@@ -73,9 +88,11 @@ bool is_primitive_type(FieldType type) {
 }
 
 // Helper: get display string for a field's value
-std::string format_field_value(const DarttField& field) {
+std::string format_field_value(const DarttField& field) 
+{
     char buf[64];
-    switch (field.type) {
+    switch (field.type) 
+	{
         case FieldType::FLOAT:
             snprintf(buf, sizeof(buf), "%.6f", field.value.f32);
             break;
