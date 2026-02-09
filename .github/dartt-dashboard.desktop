@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Dartt Dashboard
+Comment=Firmware data visualization over serial
+Exec=dartt_dashboard
+Icon=dartt-dashboard
+Categories=Utility;Development;
+Terminal=false
