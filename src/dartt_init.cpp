@@ -140,7 +140,19 @@ bool udp_connect(UdpState* state)
 		return false;
 	}
 
-	res = tcs_connect_str(state->socket, state->ip, state->port);
+	// Resolve IP string to TcsAddress, then connect
+	struct TcsAddress remote_addr = TCS_ADDRESS_NONE;
+	size_t addr_count = 0;
+	res = tcs_address_resolve(state->ip, TCS_AF_IP4, &remote_addr, 1, &addr_count);
+	if (res != TCS_SUCCESS || addr_count == 0)
+	{
+		printf("UDP: failed to resolve address '%s' (%d)\n", state->ip, res);
+		tcs_close(&state->socket);
+		return false;
+	}
+	remote_addr.data.ip4.port = state->port;
+
+	res = tcs_connect(state->socket, &remote_addr);
 	if (res != TCS_SUCCESS)
 	{
 		printf("UDP: failed to connect to %s:%u (%d)\n", state->ip, state->port, res);
