@@ -1,7 +1,9 @@
 #include "dartt_init.h"
-
+#include <cstdio>
 
 Serial serial;
+bool use_udp = false;
+UdpState udp_state = { TCS_SOCKET_INVALID, "192.168.1.100", 5000, false };
 
  #define NUM_BYTES_COBS_OVERHEAD	2	//we have to tell dartt our serial buffers are smaller than they are, so the COBS layer has room to operate. This allows for functional multiple message handling with write_multi and read_multi for large configs
 
@@ -23,8 +25,19 @@ int tx_blocking(unsigned char addr, buffer_t * b, uint32_t timeout)
 	{
 		return rc;
 	}
-    rc = serial.write(cb.buf, (int)cb.length);
-	if(rc == cb.length)
+	if (use_udp)
+	{
+		if (!udp_state.connected)
+			return -1;
+		size_t bytes_sent = 0;
+		TcsResult res = tcs_send(udp_state.socket, cb.buf, cb.length, TCS_FLAG_NONE, &bytes_sent);
+		rc = (res == TCS_SUCCESS && bytes_sent == cb.length) ? (int)cb.length : -1;
+	}
+	else
+	{
+		rc = serial.write(cb.buf, (int)cb.length);
+	}
+	if(rc == (int)cb.length)
 	{
 		return DARTT_PROTOCOL_SUCCESS;
 	}
@@ -43,8 +56,26 @@ int rx_blocking(buffer_t * buf, uint32_t timeout)
 		.length = 0
 	};
 
-    // int rc = serial.read(cb_enc.buf, cb_enc.size);	//implement our own cobs blocking read, similar to hdlc/ppp ~ check
-    int rc = serial.read_until_delimiter(cb_enc.buf, cb_enc.size, 0, timeout);
+	int rc;
+	if (use_udp)
+	{
+		if (!udp_state.connected)
+			return -1;
+		struct TcsAddress src;
+		size_t bytes_received = 0;
+		tcs_opt_receive_timeout_set(udp_state.socket, timeout);
+		TcsResult res = tcs_receive_from(udp_state.socket, cb_enc.buf, cb_enc.size, TCS_FLAG_NONE, &src, &bytes_received);
+		if (res == TCS_SUCCESS)
+		{
+			rc = (int)bytes_received;
+		}
+		else
+			rc = -2;
+	}
+	else
+	{
+		rc = serial.read_until_delimiter(cb_enc.buf, cb_enc.size, 0, timeout);
+	}
 
 	if (rc >= 0)
 	{
@@ -94,4 +125,40 @@ void init_ds(dartt_sync_t * ds)
 	ds->blocking_tx_callback = &tx_blocking;
 	ds->blocking_rx_callback = &rx_blocking;
 	ds->timeout_ms = 10;
+}
+
+bool udp_connect(UdpState* state)
+{
+	if (state->connected)
+		udp_disconnect(state);
+
+	state->socket = TCS_SOCKET_INVALID;
+	TcsResult res = tcs_socket_preset(&state->socket, TCS_PRESET_UDP_IP4);
+	if (res != TCS_SUCCESS)
+	{
+		printf("UDP: failed to create socket (%d)\n", res);
+		return false;
+	}
+
+	res = tcs_connect_str(state->socket, state->ip, state->port);
+	if (res != TCS_SUCCESS)
+	{
+		printf("UDP: failed to connect to %s:%u (%d)\n", state->ip, state->port, res);
+		tcs_close(&state->socket);
+		return false;
+	}
+
+	state->connected = true;
+	printf("UDP: connected to %s:%u\n", state->ip, state->port);
+	return true;
+}
+
+void udp_disconnect(UdpState* state)
+{
+	if (state->socket != TCS_SOCKET_INVALID)
+	{
+		tcs_close(&state->socket);
+	}
+	state->connected = false;
+	printf("UDP: disconnected\n");
 }

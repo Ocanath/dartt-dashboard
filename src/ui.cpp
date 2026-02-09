@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include "colors.h"
+#include "dartt_init.h"
 
 
 bool init_imgui(SDL_Window* window, SDL_GLContext gl_context) 
@@ -825,28 +826,72 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 
     ImGui::Begin("Live Expressions");
 
+	// Transport mode toggle
+	int mode = use_udp ? 1 : 0;
+	ImGui::RadioButton("Serial", &mode, 0);
+	ImGui::SameLine();
+	ImGui::RadioButton("UDP", &mode, 1);
+	if (mode == 0 && use_udp)
+	{
+		// Switching to Serial — disconnect UDP
+		udp_disconnect(&udp_state);
+		use_udp = false;
+	}
+	else if (mode == 1 && !use_udp)
+	{
+		use_udp = true;
+	}
+
 	ImGui::Text("Dartt Address: ");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(50);
 	ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &ds.address);
-	ImGui::SameLine();
-	ImGui::Text("Baudrate: ");
-	ImGui::SameLine();
-	ImGui::SetNextItemWidth(50);
-	uint32_t baudrate = ser.get_baud_rate();
-	ImGui::InputScalar("##baudrate", ImGuiDataType_U32, &baudrate);
-	if(ImGui::IsItemDeactivatedAfterEdit())
+
+	if (!use_udp)
 	{
-		printf("Disconnecting serial...\n");
-		ser.disconnect();
-		printf("done.\n Reconnecting with baudrate %d\n", baudrate);
-		if(ser.autoconnect(baudrate))
+		ImGui::SameLine();
+		ImGui::Text("Baudrate: ");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(50);
+		uint32_t baudrate = ser.get_baud_rate();
+		ImGui::InputScalar("##baudrate", ImGuiDataType_U32, &baudrate);
+		if(ImGui::IsItemDeactivatedAfterEdit())
 		{
-			printf("Success. Serial connected\n");
+			printf("Disconnecting serial...\n");
+			ser.disconnect();
+			printf("done.\n Reconnecting with baudrate %d\n", baudrate);
+			if(ser.autoconnect(baudrate))
+			{
+				printf("Success. Serial connected\n");
+			}
+			else
+			{
+				printf("Serial failed to connect\n");
+			}
+		}
+	}
+	else
+	{
+		ImGui::SameLine();
+		ImGui::Text("IP: ");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(120);
+		ImGui::InputText("##udp_ip", udp_state.ip, sizeof(udp_state.ip));
+		ImGui::SameLine();
+		ImGui::Text("Port: ");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(60);
+		ImGui::InputScalar("##udp_port", ImGuiDataType_U16, &udp_state.port);
+		ImGui::SameLine();
+		if (udp_state.connected)
+		{
+			if (ImGui::Button("Disconnect"))
+				udp_disconnect(&udp_state);
 		}
 		else
 		{
-			printf("Serial failed to connect\n");
+			if (ImGui::Button("Connect"))
+				udp_connect(&udp_state);
 		}
 	}
 
