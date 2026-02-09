@@ -182,11 +182,10 @@ extern "C" {
 
 // Then we have some platforms specific definitions
 #if defined(TINYCSOCKET_USE_WIN32_IMPL)
-#ifdef _WINSOCKAPI_
-#error winsock.h included instead of winsock2.h. Define "_WINSOCKAPI_" or include this header file before windows.h to fix the problem
+#ifndef _WINSOCKAPI_
+#ifndef __MINGW32__
+#define _WINSOCKAPI_
 #endif
-#ifndef __MINGW32__  // MinGW will generate a warning by it self.
-#define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h, use winsock2.h
 #endif
 #include <basetsd.h>
 typedef UINT_PTR TcsSocket;
@@ -3890,6 +3889,7 @@ TcsResult tcs_address_socket_family(TcsSocket socket_ctx, TcsAddressFamily* out_
 #endif
 
 #ifdef __cplusplus
+#include <algorithm>
 using std::min;
 #endif
 
