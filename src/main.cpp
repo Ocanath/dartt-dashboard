@@ -3,6 +3,8 @@
 // Platform headers (must come before GL on Windows)
 #ifdef _WIN32
 #define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
 #include <windows.h>
 #endif
 
@@ -39,6 +41,8 @@
 
 #include <algorithm>
 #include <string>
+
+#include "tinycsocket.h"
 
 // Helper: case-insensitive extension check
 static bool ends_with_ci(const std::string& str, const std::string& suffix) 
@@ -125,6 +129,12 @@ int main(int argc, char* argv[])
 	{
 		printf("Warning - no serial connection made\n");
 	}
+
+	if (tcs_lib_init() != TCS_SUCCESS)
+	{
+		printf("Failed to initialize tinycsocket\n");
+	}
+
 
 	// Load config (including plotting config)
 	DarttConfig config;
