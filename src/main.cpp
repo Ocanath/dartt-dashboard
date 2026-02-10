@@ -2,6 +2,7 @@
 
 // Platform headers (must come before GL on Windows)
 #ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
 #endif
 
@@ -34,20 +35,36 @@
 #include "ui.h"
 #include "buffer_sync.h"
 #include "plotting.h"
+#include "elf_parser.h"
 
-// JSON for loading plotting config
-#include <nlohmann/json.hpp>
-#include <fstream>
+#include <algorithm>
+#include <string>
 
-// Declare plotting config functions (defined in config.cpp)
-void load_plotting_config(const nlohmann::json& j, Plotter& plot,
-    const std::vector<DarttField*>& leaf_list, float* sys_sec_ptr);
+// Helper: case-insensitive extension check
+static bool ends_with_ci(const std::string& str, const std::string& suffix) 
+{
+	if (suffix.size() > str.size()) 
+	{
+		return false;
+	}
+	std::string tail = str.substr(str.size() - suffix.size());
+	std::transform(tail.begin(), tail.end(), tail.begin(), ::tolower);
+	return tail == suffix;
+}
 
 
 int main(int argc, char* argv[])
 {
 	(void)argc;
 	(void)argv;
+
+	// Drag-and-drop state
+	std::string dropped_file_path;
+	bool show_elf_popup = false;
+	char var_name_buf[128] = "";
+	std::string elf_load_error;
+	bool pending_json_load = false;
+	std::string config_json_path = "";
 
 	// Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) 
@@ -103,36 +120,14 @@ int main(int argc, char* argv[])
 	plot.init(width, height);
 	
 	// Serial connection
-	int rc = serial.autoconnect(921600);
+	int rc = serial.autoconnect(230400);
 	if (rc != true) 
 	{
 		printf("Warning - no serial connection made\n");
 	}
 
-	// Load config
+	// Load config (including plotting config)
 	DarttConfig config;
-	if (!load_dartt_config("config.json", config))
-	{
-		printf("Failed to load config.json\n");
-		// Continue anyway - UI will be empty
-	}
-
-	// Load plotting config
-	{
-		std::ifstream f("config.json");
-		if (f.is_open())
-		{
-			try
-			{
-				nlohmann::json j = nlohmann::json::parse(f);
-				load_plotting_config(j, plot, config.leaf_list, &plot.sys_sec);
-			}
-			catch (const std::exception& e)
-			{
-				printf("Warning: Could not load plotting config: %s\n", e.what());
-			}
-		}
-	}
 
 	// Allocate DARTT buffers
 	if (config.nbytes > 0) 
@@ -143,7 +138,7 @@ int main(int argc, char* argv[])
 	// Setup dartt_sync
 	dartt_sync_t ds;
 	init_ds(&ds);
-	ds.address = 0x05; // TODO: make configurable
+	ds.address = 0x0; // TODO: make configurable
 
 	if (config.ctl_buf.buf && config.periph_buf.buf) 
 	{
@@ -171,9 +166,26 @@ int main(int argc, char* argv[])
 			}
 			if (event.type == SDL_WINDOWEVENT &&
 				event.window.event == SDL_WINDOWEVENT_CLOSE &&
-				event.window.windowID == SDL_GetWindowID(window)) 
+				event.window.windowID == SDL_GetWindowID(window))
 			{
 				running = false;
+			}
+			if (event.type == SDL_DROPFILE)
+			{
+				char* file = event.drop.file;
+				dropped_file_path = file;
+				SDL_free(file);
+
+				if (ends_with_ci(dropped_file_path, ".elf"))
+				{
+					var_name_buf[0] = '\0';
+					elf_load_error.clear();
+					show_elf_popup = true;
+				}
+				else if (ends_with_ci(dropped_file_path, ".json"))
+				{
+					pending_json_load = true;
+				}
 			}
 		}
 
@@ -181,14 +193,94 @@ int main(int argc, char* argv[])
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
-		
+
+		// --- Drag-and-drop: JSON load ---
+		if (pending_json_load)
+		{
+			pending_json_load = false;
+			// Detach external references before replacing config
+			for (size_t i = 0; i < plot.lines.size(); i++)
+			{
+				plot.lines[i].xsource = &plot.sys_sec;
+				plot.lines[i].ysource = nullptr;
+			}
+			ds.ctl_base.buf = nullptr;
+			ds.periph_base.buf = nullptr;
+			config = DarttConfig();
+
+			if (load_dartt_config(dropped_file_path.c_str(), config, plot, serial, ds))
+			{
+				if (config.nbytes > 0)
+				{
+					config.allocate_buffers();
+					ds.ctl_base.buf = config.ctl_buf.buf;
+					ds.ctl_base.len = config.ctl_buf.len;
+					ds.ctl_base.size = config.ctl_buf.size;
+					ds.periph_base.buf = config.periph_buf.buf;
+					ds.periph_base.len = config.periph_buf.len;
+					ds.periph_base.size = config.periph_buf.size;
+				}
+				config_json_path = dropped_file_path;
+				printf("Loaded config from JSON: %s\n", dropped_file_path.c_str());
+			}
+			else
+			{
+				printf("Failed to load JSON: %s\n", dropped_file_path.c_str());
+			}
+		}
+
+		// --- Drag-and-drop: ELF popup + load ---
+		if (render_elf_load_popup(&show_elf_popup, dropped_file_path, var_name_buf, sizeof(var_name_buf), elf_load_error))
+		{
+			// User clicked Load - detach external references
+			for (size_t i = 0; i < plot.lines.size(); i++)
+			{
+				plot.lines[i].xsource = &plot.sys_sec;
+				plot.lines[i].ysource = nullptr;
+			}
+			ds.ctl_base.buf = nullptr;
+			ds.periph_base.buf = nullptr;
+			config = DarttConfig();
+
+			elf_parse_error_t err = elf_parser_load_config(dropped_file_path.c_str(), var_name_buf, &config);
+
+			if (err == ELF_PARSE_SUCCESS)
+			{
+				if (config.nbytes > 0)
+				{
+					config.allocate_buffers();
+					ds.ctl_base.buf = config.ctl_buf.buf;
+					ds.ctl_base.len = config.ctl_buf.len;
+					ds.ctl_base.size = config.ctl_buf.size;
+					ds.periph_base.buf = config.periph_buf.buf;
+					ds.periph_base.len = config.periph_buf.len;
+					ds.periph_base.size = config.periph_buf.size;
+				}
+				config_json_path = dropped_file_path.substr(0, dropped_file_path.size() - 4) + ".json";
+				elf_parser_ctx tmp_parser;
+				if (elf_parser_init(&tmp_parser, dropped_file_path.c_str()) == ELF_PARSE_SUCCESS)
+				{
+					elf_parser_generate_json(&tmp_parser, var_name_buf, config_json_path.c_str());
+					elf_parser_cleanup(&tmp_parser);
+				}
+				elf_load_error.clear();
+				ImGui::CloseCurrentPopup();
+				printf("Loaded config from ELF: %s (symbol: %s)\n",
+				       dropped_file_path.c_str(), var_name_buf);
+			}
+			else
+			{
+				elf_load_error = elf_parse_error_str(err);
+			}
+		}
 
 		// Rebuild subscribed and dirty lists before read/write operations
 		collect_subscribed_fields(config.leaf_list, config.subscribed_list);
 		collect_dirty_fields(config.leaf_list, config.dirty_list);
 
 		// WRITE: Send dirty fields to device
-		if (config.ctl_buf.buf && config.periph_buf.buf) {
+		if (config.ctl_buf.buf && config.periph_buf.buf) 
+		{
 			std::vector<MemoryRegion> write_queue = build_write_queue(config);
 			for (MemoryRegion& region : write_queue) {
 				sync_fields_to_ctl_buf(config, region);
@@ -238,7 +330,7 @@ int main(int argc, char* argv[])
 		calculate_display_values(config.leaf_list);		
 
 		// Render UI
-		bool value_edited = render_live_expressions(config, plot);
+		bool value_edited = render_live_expressions(config, plot, config_json_path, serial, ds);
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
 		render_plotting_menu(plot, config.root, config.subscribed_list);
@@ -247,7 +339,7 @@ int main(int argc, char* argv[])
 		//add new frame of data to each line, as determined by UI
 		for(int i = 0; i < plot.lines.size(); i++)
 		{
-			plot.lines[i].enqueue_data(plot.window_width, plot.window_width);
+			plot.lines[i].enqueue_data(plot.window_width);
 		}
 		
 

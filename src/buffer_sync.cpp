@@ -33,13 +33,16 @@ void collect_subscribed_fields(const std::vector<DarttField*> &leaf_list, std::v
 	}
 }
 
+
 // Align offset down to 32-bit boundary
-static uint32_t align_down_32(uint32_t offset) {
+static uint32_t align_down_32(uint32_t offset) 
+{
     return offset & ~3u;
 }
 
 // Align offset up to 32-bit boundary
-static uint32_t align_up_32(uint32_t offset) {
+static uint32_t align_up_32(uint32_t offset) 
+{
     return (offset + 3u) & ~3u;
 }
 

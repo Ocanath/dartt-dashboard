@@ -1,6 +1,5 @@
 #include "config.h"
 #include "plotting.h"
-#include <nlohmann/json.hpp>
 #include <fstream>
 #include <cstdio>
 #include <vector>
@@ -25,12 +24,30 @@ struct InjectWork {
 //TODO: cross reference type with nbytes to confirm that the label matches the expected size.
 FieldType parse_field_type(const std::string& type_str) {
     // Check for common type names
-    if (type_str == "float") return FieldType::FLOAT;
-    if (type_str == "double") return FieldType::DOUBLE;
-    if (type_str == "int8_t" || type_str == "signed char") return FieldType::INT8;
-    if (type_str == "uint8_t" || type_str == "unsigned char") return FieldType::UINT8;
-    if (type_str == "int16_t" || type_str == "short" || type_str == "short int") return FieldType::INT16;
-    if (type_str == "uint16_t" || type_str == "unsigned short" || type_str == "unsigned short int") return FieldType::UINT16;
+    if (type_str == "float")
+	{
+		return FieldType::FLOAT;
+	}
+    if (type_str == "double") 
+	{
+		return FieldType::DOUBLE;
+	}
+    if (type_str == "int8_t" || type_str == "signed char") 
+	{
+		return FieldType::INT8;
+	}
+    if (type_str == "uint8_t" || type_str == "unsigned char")
+	{ 
+		return FieldType::UINT8;
+	}
+    if (type_str == "int16_t" || type_str == "short" || type_str == "short int") 
+	{
+		return FieldType::INT16;
+	}
+    if (type_str == "uint16_t" || type_str == "unsigned short" || type_str == "unsigned short int") 
+	{
+		return FieldType::UINT16;
+	}
     if (type_str == "int32_t" || type_str == "int" || type_str == "long" || type_str == "long int") return FieldType::INT32;
     if (type_str == "uint32_t" || type_str == "unsigned int" || type_str == "unsigned long" || type_str == "unsigned long int" || type_str == "long unsigned int") return FieldType::UINT32;
     if (type_str == "int64_t" || type_str == "long long" || type_str == "long long int") return FieldType::INT64;
@@ -74,9 +91,11 @@ bool is_primitive_type(FieldType type) {
 }
 
 // Helper: get display string for a field's value
-std::string format_field_value(const DarttField& field) {
+std::string format_field_value(const DarttField& field) 
+{
     char buf[64];
-    switch (field.type) {
+    switch (field.type) 
+	{
         case FieldType::FLOAT:
             snprintf(buf, sizeof(buf), "%.6f", field.value.f32);
             break;
@@ -215,6 +234,45 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
 }
 
 /*
+Expand primitive arrays into individual element children.
+For any field where array_size > 0 && children.empty() && element_nbytes > 0,
+creates array_size children with [i] names and correct offsets/types.
+*/
+void expand_array_elements(DarttField& root) 
+{
+    std::vector<DarttField*> stack;
+    stack.push_back(&root);
+    while (!stack.empty()) 
+	{
+        DarttField* f = stack.back();
+        stack.pop_back();
+
+        if (f->array_size > 0 && f->children.empty() && f->element_nbytes > 0) 
+		{
+            FieldType elem_type = parse_field_type(f->type_name);
+
+            f->children.resize(f->array_size);
+            for (uint32_t i = 0; i < f->array_size; i++) 
+			{
+                DarttField& elem = f->children[i];
+                elem.name = "[" + std::to_string(i) + "]";
+                elem.byte_offset = f->byte_offset + i * f->element_nbytes;
+                elem.dartt_offset = elem.byte_offset / 4;
+                elem.nbytes = f->element_nbytes;
+                elem.type = elem_type;
+                elem.type_name = f->type_name;
+            }
+        }
+
+        // Continue DFS into children (including newly created ones)
+        for (size_t i = f->children.size(); i > 0; i--) 
+		{
+            stack.push_back(&f->children[i - 1]);
+        }
+    }
+}
+
+/*
 Function to collect a list of all leaves. One-time depth first search traversal
 for leaf-only operations
 */
@@ -242,27 +300,49 @@ void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list)
 }
 
 // Main config loader
-bool load_dartt_config(const char* json_path, DarttConfig& config) 
+bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot, Serial & serial, dartt_sync_t& ds)
 {
     // Open and parse JSON file
     std::ifstream f(json_path);
-    if (!f.is_open()) 
-	{
+    if (!f.is_open())
+    {
         fprintf(stderr, "Error: Could not open config file: %s\n", json_path);
         return false;
     }
 
     json j;
-    try 
-	{
+    try
+    {
         j = json::parse(f);
-    } 
-	catch (const json::parse_error& e) 
-	{
+    }
+    catch (const json::parse_error& e)
+    {
         fprintf(stderr, "Error: JSON parse error: %s\n", e.what());
         return false;
     }
 
+	if(j.contains("serial_settings") && j["serial_settings"].is_object())
+	{
+		const json & ser_settings = j["serial_settings"];
+	
+		ds.address = ser_settings.value("dartt_serial_address", 0);
+		uint32_t baudrate = ser_settings.value("baudrate", 921600);
+		if(baudrate != serial.get_baud_rate())
+		{
+			printf("Disconnecting serial...\n");
+			serial.disconnect();
+			printf("done.\n Reconnecting with baudrate %d\n", baudrate);
+			if(serial.autoconnect(baudrate))
+			{
+				printf("Success. Serial connected\n");
+			}
+			else
+			{
+				printf("Serial failed to connect\n");
+			}
+		}	
+	}
+	
     // Parse top-level fields
     config.symbol = j.value("symbol", "");
     config.address_str = j.value("address", "");
@@ -278,8 +358,13 @@ bool load_dartt_config(const char* json_path, DarttConfig& config)
 
     printf("Loaded config: symbol=%s, address=0x%08X, nbytes=%u, nwords=%u\n",
            config.symbol.c_str(), config.address, config.nbytes, config.nwords);
-	
-	collect_leaves(config.root, config.leaf_list);
+
+    expand_array_elements(config.root);
+    collect_leaves(config.root, config.leaf_list);
+
+    // Load plotting config if plotter provided
+	load_plotting_config(j, plot, config.leaf_list);
+
     return true;
 }
 
@@ -317,8 +402,16 @@ static void inject_ui_settings_iterative(json& root_json, const std::vector<Dart
     }
 }
 
+void save_serial_settings(json & j, Serial & serial, const dartt_sync_t & ds)
+{
+	json serial_settings;
+	serial_settings["dartt_serial_address"] = ds.address;
+	serial_settings["baudrate"] = serial.get_baud_rate();
+	j["serial_settings"] = serial_settings;
+}
+
 // Save plotting config to JSON
-void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttField*>& leaf_list, float* sys_sec_ptr)
+void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttField*>& leaf_list)
 {
     json plotting;
     json lines_json = json::array();
@@ -332,7 +425,7 @@ void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttF
 
         // X source data
         json xsource_data;
-        if (line.xsource == sys_sec_ptr)
+        if (line.xsource == &plot.sys_sec)
         {
             xsource_data["byte_offset"] = -1;
             xsource_data["name"] = "sys_sec";
@@ -400,7 +493,7 @@ void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttF
         line_json["xoffset"] = line.xoffset;
         line_json["yscale"] = line.yscale;
         line_json["yoffset"] = line.yoffset;
-
+		line_json["enqueue_cap"] = line.enqueue_cap;
         lines_json.push_back(line_json);
     }
 
@@ -410,8 +503,8 @@ void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttF
 
 // Save config to JSON file (only adds ui objects, preserves everything else)
 // If plot is provided, also saves plotting config
-bool save_dartt_config(const char* json_path, const DarttConfig& config,
-    const Plotter* plot, float* sys_sec_ptr) {
+bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot, Serial & serial, dartt_sync_t& ds) 
+{
     // Read original JSON
     std::ifstream f_in(json_path);
     if (!f_in.is_open()) {
@@ -420,28 +513,32 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config,
     }
 
     json j;
-    try {
+    try 
+	{
         j = json::parse(f_in);
-    } catch (const json::parse_error& e) {
+    } 
+	catch (const json::parse_error& e) 
+	{
         fprintf(stderr, "Error: JSON parse error: %s\n", e.what());
         return false;
     }
     f_in.close();
 
     // Inject UI settings into type.fields
-    if (j.contains("type") && j["type"].contains("fields")) {
+    if (j.contains("type") && j["type"].contains("fields")) 
+	{
         inject_ui_settings_iterative(j["type"]["fields"], config.root.children);
     }
 
     // Save plotting config if plotter provided
-    if (plot != nullptr) 
-	{
-        save_plotting_config(j, *plot, config.leaf_list, sys_sec_ptr);
-    }
+	save_plotting_config(j, plot, config.leaf_list);
+
+	save_serial_settings(j, serial, ds);
 
     // Write back
     std::ofstream f_out(json_path);
-    if (!f_out.is_open()) {
+    if (!f_out.is_open()) 
+	{
         fprintf(stderr, "Error: Could not open config file for writing: %s\n", json_path);
         return false;
     }
@@ -472,8 +569,7 @@ DarttField* find_field_by_offset_and_name(
 
 
 // Load plotting config from JSON
-void load_plotting_config(const json& j, Plotter& plot,
-    const std::vector<DarttField*>& leaf_list, float* sys_sec_ptr)
+void load_plotting_config(const json& j, Plotter& plot, const std::vector<DarttField*>& leaf_list)
 {
     if (!j.contains("plotting"))
     {
@@ -508,7 +604,7 @@ void load_plotting_config(const json& j, Plotter& plot,
 
             if (offset == -1 && name == "sys_sec")
             {
-                line.xsource = sys_sec_ptr;
+                line.xsource = &plot.sys_sec;
             }
             else if (offset == -2 || name == "none")
             {
@@ -525,13 +621,13 @@ void load_plotting_config(const json& j, Plotter& plot,
                 {
                     printf("Warning: Could not find xsource field '%s' at offset %d, defaulting to sys_sec\n",
                            name.c_str(), offset);
-                    line.xsource = sys_sec_ptr;
+                    line.xsource = &plot.sys_sec;
                 }
             }
         }
         else
         {
-            line.xsource = sys_sec_ptr;
+            line.xsource = &plot.sys_sec;
         }
 
         // Y source
@@ -579,7 +675,7 @@ void load_plotting_config(const json& j, Plotter& plot,
         line.xoffset = line_json.value("xoffset", 0.0f);
         line.yscale = line_json.value("yscale", 1.0f);
         line.yoffset = line_json.value("yoffset", 0.0f);
-
+		line.enqueue_cap = line_json.value("enqueue_cap", 2134);
         plot.lines.push_back(line);
     }
 

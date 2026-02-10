@@ -6,6 +6,9 @@
 #include <cstdint>
 #include "dartt_sync.h"
 #include "dartt.h"
+#include "plotting.h"
+#include <nlohmann/json.hpp>
+#include "serial.h"
 
 // Field type classification for parsing and display
 enum class FieldType {
@@ -28,7 +31,8 @@ enum class FieldType {
 };
 
 // Single field in the hierarchy
-struct DarttField {
+struct DarttField 
+{
     std::string name;
     uint32_t byte_offset;       // absolute from struct base
     uint32_t dartt_offset;      // 32-bit word index (byte_offset / 4)
@@ -86,7 +90,8 @@ struct DarttField {
 };
 
 // Top-level config loaded from JSON
-struct DarttConfig {
+struct DarttConfig 
+{
     std::string symbol;
     std::string address_str;    // hex string "0x20001000"
     uint32_t address;           // numeric address
@@ -146,8 +151,16 @@ struct DarttConfig {
 };
 
 // Parse config from JSON file
+// If plot is provided, also loads plotting config
 // Returns true on success, false on error (error message printed to stderr)
-bool load_dartt_config(const char* json_path, DarttConfig& config);
+bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot, Serial & serial, dartt_sync_t& ds);
+
+
+// Parse plotting config from json, if present.
+void load_plotting_config(const nlohmann::json& j, Plotter& plot, const std::vector<DarttField*>& leaf_list);
+
+// Expand primitive arrays into individual element children
+void expand_array_elements(DarttField& root);
 
 // Collect a list of all leaves
 void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list);
@@ -158,8 +171,7 @@ class Plotter;
 // Save config to JSON file (preserves UI settings)
 // If plot is provided, also saves plotting config
 // Returns true on success, false on error (error message printed to stderr)
-bool save_dartt_config(const char* json_path, const DarttConfig& config,
-    const Plotter* plot = nullptr, float* sys_sec_ptr = nullptr);
+bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot, Serial & serial, dartt_sync_t& ds);
 
 // Helper: get FieldType from type string
 FieldType parse_field_type(const std::string& type_str);

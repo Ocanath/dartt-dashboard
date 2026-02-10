@@ -1,4 +1,5 @@
 #ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
 #endif
 #include <GL/gl.h>
@@ -30,6 +31,7 @@ Line::Line()
 	, xoffset(0.f)
 	, yscale(1.f)
 	, yoffset(0.f)
+	, enqueue_cap(2000)
 {
 	color.r = 0;
 	color.g = 0;
@@ -43,8 +45,16 @@ Line::Line(int capacity)
 	, xsource(NULL)
 	, ysource(NULL)
 	, mode(TIME_MODE)
-	, xscale(1.0f)
+	, xscale(1.f)
+	, xoffset(0.f)
+	, yscale(1.f)
+	, yoffset(0.f)
+	, enqueue_cap(2000)
 {
+	color.r = 0;
+	color.g = 0;
+	color.b = 0;
+	color.a = 0xFF;
 }
 
 // Plotter class implementation
@@ -146,7 +156,7 @@ void Plotter::render()
 
 
 
-bool Line::enqueue_data(int enqueue_cap, int screen_width)
+bool Line::enqueue_data(int screen_width)
 {
 	if(xsource == NULL || ysource == NULL)
 	{
@@ -157,11 +167,15 @@ bool Line::enqueue_data(int enqueue_cap, int screen_width)
 	{
 		points.push_back(fpoint_t(*xsource, *ysource));
 	}	
-	else
+	else if(points.size() > enqueue_cap)
+	{
+		points.resize(enqueue_cap);
+	}
+	if(points.size() == enqueue_cap)
 	{
 		std::rotate(points.begin(), points.begin() + 1, points.end());
 		points.back() = fpoint_t(*xsource, *ysource);
-	}	
+	}
 
 	if(mode == TIME_MODE)
 	{

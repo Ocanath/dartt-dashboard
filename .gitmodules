@@ -13,3 +13,9 @@
 [submodule "external/json"]
 	path = external/json
 	url = https://github.com/nlohmann/json.git
+[submodule "external/libdwarf"]
+	path = external/libdwarf
+	url = https://github.com/davea42/libdwarf-code.git
+[submodule "external/ELFIO"]
+	path = external/ELFIO
+	url = https://github.com/serge1/ELFIO.git

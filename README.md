@@ -1,6 +1,14 @@
-# dartt-dashboard
+# Dartt Dashboard
 
-## Build Dependencies
+## Data visualization for DARTT devices
+
+This software is for visualizing and manipulating data in DARTT devices over serial. 
+
+!["example of UI"](img/fullexample.png)
+
+## Building
+
+If on linux, install SDL2 development libraries with your package manager.
 
 ### Debian/Ubuntu
 ```bash
@@ -17,17 +25,18 @@ sudo dnf install mesa-libGL-devel SDL2-devel
 sudo pacman -S mesa sdl2
 ```
 
-## Building
+Then compile via cmake:
 
 ```bash
 git submodule update --init --recursive
 mkdir build && cd build
 cmake ..
-make
+cmake --build .
 ```
 
 ## IMPORTANT NOTE FOR WINDOWS:
 
 You MUST copy the SDL2.dll to the same directory as the compiled executable. It will otherwise fail silently (via cmd) or with an error (if launched via visual studio).
 
-Make sure to use the same target architecture - i.e. x86 or x64. The .dlls can be found in the SDL directory
+Make sure to use the same target architecture - i.e. [x86](external/SDL/lib/x86/SDL2.dll) or [x64](external/SDL/lib/x64/SDL2.dll). 
+

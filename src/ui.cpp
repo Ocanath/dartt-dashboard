@@ -789,6 +789,10 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		ImGui::SetNextItemWidth(60.0f);
 		ImGui::InputFloat("##yoffset", &line.yoffset, 0, 0, "%.2f");
 
+		ImGui::Text("Buffer Size");
+		ImGui::SameLine();
+		ImGui::InputScalar("##buffsersize", ImGuiDataType_U32, &line.enqueue_cap, 0, 0, "%d");
+
 		// Color picker
 		ImGui::Text("Color:");
 		ImGui::SameLine();
@@ -815,11 +819,36 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 	return true;
 }
 
-bool render_live_expressions(DarttConfig& config, Plotter& plot)
+bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path, Serial & ser, dartt_sync_t & ds)
 {
     bool any_edited = false;
 
     ImGui::Begin("Live Expressions");
+
+	ImGui::Text("Dartt Address: ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(50);
+	ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &ds.address);
+	ImGui::SameLine();
+	ImGui::Text("Baudrate: ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(50);
+	uint32_t baudrate = ser.get_baud_rate();
+	ImGui::InputScalar("##baudrate", ImGuiDataType_U32, &baudrate);
+	if(ImGui::IsItemDeactivatedAfterEdit())
+	{
+		printf("Disconnecting serial...\n");
+		ser.disconnect();
+		printf("done.\n Reconnecting with baudrate %d\n", baudrate);
+		if(ser.autoconnect(baudrate))
+		{
+			printf("Success. Serial connected\n");
+		}
+		else
+		{
+			printf("Serial failed to connect\n");
+		}
+	}
 
     // Show config info
     ImGui::Text("Symbol: %s", config.symbol.c_str());
@@ -827,7 +856,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot)
     bool save_clicked = ImGui::Button("Save");
 	if(save_clicked)
 	{
-		save_dartt_config("config.json", config, &plot, &plot.sys_sec);
+		save_dartt_config(config_json_path.c_str(), config, plot, ser, ds);
 	}
 
 	ImGui::SameLine();
@@ -866,4 +895,78 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot)
     ImGui::End();
 
     return any_edited;
+}
+
+bool render_elf_load_popup(bool* show, const std::string& elf_path,
+                           char* var_name_buf, size_t buf_size,
+                           std::string& error_msg)
+{
+    bool load_requested = false;
+
+    if (*show)
+    {
+        ImGui::OpenPopup("Load ELF");
+        *show = false;  // Only open once; modal stays open until dismissed
+    }
+
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(500, 0), ImGuiCond_Appearing);
+
+    if (ImGui::BeginPopupModal("Load ELF", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("File:");
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s", elf_path.c_str());
+
+        ImGui::Separator();
+
+        ImGui::Text("Variable name:");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        bool enter_pressed = ImGui::InputText("##varname", var_name_buf, buf_size,
+                                               ImGuiInputTextFlags_EnterReturnsTrue);
+
+        // Focus the text input on first appearance
+        if (ImGui::IsWindowAppearing())
+        {
+            ImGui::SetKeyboardFocusHere(-1);
+        }
+
+        // Error message
+        if (!error_msg.empty())
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+            ImGui::TextWrapped("%s", error_msg.c_str());
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::Separator();
+
+        bool name_valid = (var_name_buf[0] != '\0');
+
+        if (!name_valid)
+        {
+            ImGui::BeginDisabled();
+        }
+        if (ImGui::Button("Load", ImVec2(120, 0)) || (enter_pressed && name_valid))
+        {
+            load_requested = true;
+            // Don't close popup yet - caller decides based on success/failure
+        }
+        if (!name_valid)
+        {
+            ImGui::EndDisabled();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+        {
+            error_msg.clear();
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+
+    return load_requested;
 }
