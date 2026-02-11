@@ -12,7 +12,7 @@ unsigned char rx_dartt_mem[SERIAL_BUFFER_SIZE] = {};
 unsigned char rx_cobs_mem[SERIAL_BUFFER_SIZE] = {};
 
 
-int tx_blocking(unsigned char addr, buffer_t * b, uint32_t timeout)
+int tx_blocking(unsigned char addr, dartt_buffer_t * b, uint32_t timeout)
 {
 	cobs_buf_t cb = {
 		.buf = b->buf,
@@ -47,7 +47,7 @@ int tx_blocking(unsigned char addr, buffer_t * b, uint32_t timeout)
 	}
 }
 
-int rx_blocking(buffer_t * buf, uint32_t timeout)
+int rx_blocking(dartt_buffer_t * buf, uint32_t timeout)
 {
 	cobs_buf_t cb_enc =
 	{
