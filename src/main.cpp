@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
 	plot.init(width, height);
 	
 	// Serial connection
-	int rc = serial.autoconnect(230400);
+	bool rc = serial.autoconnect(230400);
 	if (rc != true) 
 	{
 		printf("Warning - no serial connection made\n");
@@ -161,10 +161,8 @@ int main(int argc, char* argv[])
 	{
 		//shallow copy the buffers
 		ds.ctl_base.buf = config.ctl_buf.buf;
-		ds.ctl_base.len = config.ctl_buf.len;
 		ds.ctl_base.size = config.ctl_buf.size;
 		ds.periph_base.buf = config.periph_buf.buf;
-		ds.periph_base.len = config.periph_buf.len;
 		ds.periph_base.size = config.periph_buf.size;
 	}
 
@@ -231,10 +229,8 @@ int main(int argc, char* argv[])
 				{
 					config.allocate_buffers();
 					ds.ctl_base.buf = config.ctl_buf.buf;
-					ds.ctl_base.len = config.ctl_buf.len;
 					ds.ctl_base.size = config.ctl_buf.size;
 					ds.periph_base.buf = config.periph_buf.buf;
-					ds.periph_base.len = config.periph_buf.len;
 					ds.periph_base.size = config.periph_buf.size;
 				}
 				config_json_path = dropped_file_path;
@@ -267,10 +263,8 @@ int main(int argc, char* argv[])
 				{
 					config.allocate_buffers();
 					ds.ctl_base.buf = config.ctl_buf.buf;
-					ds.ctl_base.len = config.ctl_buf.len;
 					ds.ctl_base.size = config.ctl_buf.size;
 					ds.periph_base.buf = config.periph_buf.buf;
-					ds.periph_base.len = config.periph_buf.len;
 					ds.periph_base.size = config.periph_buf.size;
 				}
 				config_json_path = dropped_file_path.substr(0, dropped_file_path.size() - 4) + ".json";
