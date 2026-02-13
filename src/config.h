@@ -100,8 +100,8 @@ struct DarttConfig
     DarttField root;            // root struct containing all fields
 
     // DARTT buffers (allocated after parsing)
-	dartt_buffer_t ctl_buf;
-	dartt_buffer_t periph_buf;
+	dartt_mem_t ctl_buf;
+	dartt_mem_t periph_buf;
     // uint8_t* ctl_buf;           // controller copy (what we want)
     // uint8_t* periph_buf;        // peripheral copy (shadow, what device has)
 
@@ -138,11 +138,9 @@ struct DarttConfig
 		}
 
         ctl_buf.buf = (uint8_t*)calloc(1, nbytes);
-		ctl_buf.len = nbytes;
 		ctl_buf.size = nbytes;
 
         periph_buf.buf = (uint8_t*)calloc(1, nbytes);
-		periph_buf.len = nbytes;
 		periph_buf.size = nbytes;
 		
 
