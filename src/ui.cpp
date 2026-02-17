@@ -826,31 +826,19 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 
     ImGui::Begin("Live Expressions");
 
-	// Transport mode toggle: 0=Serial, 1=UDP, 2=TCP
-	int mode = use_tcp ? 2 : (use_udp ? 1 : 0);
-	ImGui::RadioButton("Serial", &mode, 0);
+	// Transport mode toggle
+	int mode = (int)comm_mode;
+	ImGui::RadioButton("Serial", &mode, COMM_SERIAL);
 	ImGui::SameLine();
-	ImGui::RadioButton("UDP", &mode, 1);
+	ImGui::RadioButton("UDP", &mode, COMM_UDP);
 	ImGui::SameLine();
-	ImGui::RadioButton("TCP", &mode, 2);
-	if (mode == 0 && (use_udp || use_tcp))
+	ImGui::RadioButton("TCP", &mode, COMM_TCP);
+	CommMode new_mode = (CommMode)mode;
+	if (new_mode != comm_mode)
 	{
-		if (use_udp) udp_disconnect(&udp_state);
-		if (use_tcp) tcp_disconnect(&tcp_state);
-		use_udp = false;
-		use_tcp = false;
-	}
-	else if (mode == 1 && !use_udp)
-	{
-		if (use_tcp) tcp_disconnect(&tcp_state);
-		use_tcp = false;
-		use_udp = true;
-	}
-	else if (mode == 2 && !use_tcp)
-	{
-		if (use_udp) udp_disconnect(&udp_state);
-		use_udp = false;
-		use_tcp = true;
+		if (comm_mode == COMM_UDP) udp_disconnect(&udp_state);
+		if (comm_mode == COMM_TCP) tcp_disconnect(&tcp_state);
+		comm_mode = new_mode;
 	}
 
 	ImGui::Text("Dartt Address: ");
@@ -858,75 +846,81 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 	ImGui::SetNextItemWidth(50);
 	ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &ds.address);
 
-	if (!use_udp && !use_tcp)
+	switch (comm_mode)
 	{
-		ImGui::SameLine();
-		ImGui::Text("Baudrate: ");
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(50);
-		uint32_t baudrate = ser.get_baud_rate();
-		ImGui::InputScalar("##baudrate", ImGuiDataType_U32, &baudrate);
-		if(ImGui::IsItemDeactivatedAfterEdit())
+		case COMM_SERIAL:
 		{
-			printf("Disconnecting serial...\n");
-			ser.disconnect();
-			printf("done.\n Reconnecting with baudrate %d\n", baudrate);
-			if(ser.autoconnect(baudrate))
+			ImGui::SameLine();
+			ImGui::Text("Baudrate: ");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(50);
+			uint32_t baudrate = ser.get_baud_rate();
+			ImGui::InputScalar("##baudrate", ImGuiDataType_U32, &baudrate);
+			if(ImGui::IsItemDeactivatedAfterEdit())
 			{
-				printf("Success. Serial connected\n");
+				printf("Disconnecting serial...\n");
+				ser.disconnect();
+				printf("done.\n Reconnecting with baudrate %d\n", baudrate);
+				if(ser.autoconnect(baudrate))
+				{
+					printf("Success. Serial connected\n");
+				}
+				else
+				{
+					printf("Serial failed to connect\n");
+				}
+			}
+			break;
+		}
+		case COMM_UDP:
+		{
+			ImGui::SameLine();
+			ImGui::Text("IP: ");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(120);
+			ImGui::InputText("##udp_ip", udp_state.ip, sizeof(udp_state.ip));
+			ImGui::SameLine();
+			ImGui::Text("Port: ");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(60);
+			ImGui::InputScalar("##udp_port", ImGuiDataType_U16, &udp_state.port);
+			ImGui::SameLine();
+			if (udp_state.connected)
+			{
+				if (ImGui::Button("Disconnect"))
+					udp_disconnect(&udp_state);
 			}
 			else
 			{
-				printf("Serial failed to connect\n");
+				if (ImGui::Button("Connect"))
+					udp_connect(&udp_state);
 			}
+			break;
 		}
-	}
-	else if (use_udp)
-	{
-		ImGui::SameLine();
-		ImGui::Text("IP: ");
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(120);
-		ImGui::InputText("##udp_ip", udp_state.ip, sizeof(udp_state.ip));
-		ImGui::SameLine();
-		ImGui::Text("Port: ");
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(60);
-		ImGui::InputScalar("##udp_port", ImGuiDataType_U16, &udp_state.port);
-		ImGui::SameLine();
-		if (udp_state.connected)
+		case COMM_TCP:
 		{
-			if (ImGui::Button("Disconnect"))
-				udp_disconnect(&udp_state);
-		}
-		else
-		{
-			if (ImGui::Button("Connect"))
-				udp_connect(&udp_state);
-		}
-	}
-	else if (use_tcp)
-	{
-		ImGui::SameLine();
-		ImGui::Text("IP: ");
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(120);
-		ImGui::InputText("##tcp_ip", tcp_state.ip, sizeof(tcp_state.ip));
-		ImGui::SameLine();
-		ImGui::Text("Port: ");
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(60);
-		ImGui::InputScalar("##tcp_port", ImGuiDataType_U16, &tcp_state.port);
-		ImGui::SameLine();
-		if (tcp_state.connected)
-		{
-			if (ImGui::Button("Disconnect"))
-				tcp_disconnect(&tcp_state);
-		}
-		else
-		{
-			if (ImGui::Button("Connect"))
-				tcp_connect(&tcp_state);
+			ImGui::SameLine();
+			ImGui::Text("IP: ");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(120);
+			ImGui::InputText("##tcp_ip", tcp_state.ip, sizeof(tcp_state.ip));
+			ImGui::SameLine();
+			ImGui::Text("Port: ");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(60);
+			ImGui::InputScalar("##tcp_port", ImGuiDataType_U16, &tcp_state.port);
+			ImGui::SameLine();
+			if (tcp_state.connected)
+			{
+				if (ImGui::Button("Disconnect"))
+					tcp_disconnect(&tcp_state);
+			}
+			else
+			{
+				if (ImGui::Button("Connect"))
+					tcp_connect(&tcp_state);
+			}
+			break;
 		}
 	}
 
