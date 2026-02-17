@@ -58,7 +58,7 @@ jobs:
         run: |
           # Generate a placeholder icon
           convert -size 256x256 xc:#2d2d2d \
-            -fill white -gravity center -pointsize 28 -annotate 0 "DARTT" \
+            -fill white -gravity center -font DejaVu-Sans -pointsize 28 -annotate 0 "DARTT" \
             dartt-dashboard.png
 
           # Download linuxdeploy and extract (no FUSE on runners)
