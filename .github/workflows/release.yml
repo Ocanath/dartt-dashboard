@@ -75,11 +75,15 @@ jobs:
             --icon-file dartt-dashboard.png \
             --output appimage
 
+          # Normalize the output name (linuxdeploy derives it from the .desktop Name field)
+          rm -f linuxdeploy-x86_64.AppImage
+          mv *-x86_64.AppImage dartt-dashboard-linux-x86_64.AppImage
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: dartt-dashboard-linux
-          path: '*.AppImage'
+          path: 'dartt-dashboard-linux-x86_64.AppImage'
 
   release:
     needs: [build-windows, build-linux]
