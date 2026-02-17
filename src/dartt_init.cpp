@@ -3,7 +3,9 @@
 
 Serial serial;
 bool use_udp = false;
+bool use_tcp = false;
 UdpState udp_state = { TCS_SOCKET_INVALID, "192.168.1.100", 5000, false };
+TcpState tcp_state = { TCS_SOCKET_INVALID, "192.168.1.100", 5000, false };
 
  #define NUM_BYTES_COBS_OVERHEAD	2	//we have to tell dartt our serial buffers are smaller than they are, so the COBS layer has room to operate. This allows for functional multiple message handling with write_multi and read_multi for large configs
 
@@ -25,7 +27,15 @@ int tx_blocking(unsigned char addr, dartt_buffer_t * b, uint32_t timeout)
 	{
 		return rc;
 	}
-	if (use_udp)
+	if (use_tcp)
+	{
+		if (!tcp_state.connected)
+			return -1;
+		size_t bytes_sent = 0;
+		TcsResult res = tcs_send(tcp_state.socket, cb.buf, cb.length, TCS_FLAG_NONE, &bytes_sent);
+		rc = (res == TCS_SUCCESS && bytes_sent == cb.length) ? (int)cb.length : -1;
+	}
+	else if (use_udp)
 	{
 		if (!udp_state.connected)
 			return -1;
@@ -57,7 +67,21 @@ int rx_blocking(dartt_buffer_t * buf, uint32_t timeout)
 	};
 
 	int rc;
-	if (use_udp)
+	if (use_tcp)
+	{
+		if (!tcp_state.connected)
+			return -1;
+		size_t bytes_received = 0;
+		tcs_opt_receive_timeout_set(tcp_state.socket, timeout);
+		TcsResult res = tcs_receive_line(tcp_state.socket, cb_enc.buf, cb_enc.size, &bytes_received, 0x00);
+		if (res == TCS_SUCCESS)
+		{
+			rc = (int)bytes_received;
+		}
+		else
+			rc = -2;
+	}
+	else if (use_udp)
 	{
 		if (!udp_state.connected)
 			return -1;
@@ -173,4 +197,51 @@ void udp_disconnect(UdpState* state)
 	}
 	state->connected = false;
 	printf("UDP: disconnected\n");
+}
+
+bool tcp_connect(TcpState* state)
+{
+	if (state->connected)
+		tcp_disconnect(state);
+
+	state->socket = TCS_SOCKET_INVALID;
+	TcsResult res = tcs_socket_preset(&state->socket, TCS_PRESET_TCP_IP4);
+	if (res != TCS_SUCCESS)
+	{
+		printf("TCP: failed to create socket (%d)\n", res);
+		return false;
+	}
+
+	struct TcsAddress remote_addr = TCS_ADDRESS_NONE;
+	size_t addr_count = 0;
+	res = tcs_address_resolve(state->ip, TCS_AF_IP4, &remote_addr, 1, &addr_count);
+	if (res != TCS_SUCCESS || addr_count == 0)
+	{
+		printf("TCP: failed to resolve address '%s' (%d)\n", state->ip, res);
+		tcs_close(&state->socket);
+		return false;
+	}
+	remote_addr.data.ip4.port = state->port;
+
+	res = tcs_connect(state->socket, &remote_addr);
+	if (res != TCS_SUCCESS)
+	{
+		printf("TCP: failed to connect to %s:%u (%d)\n", state->ip, state->port, res);
+		tcs_close(&state->socket);
+		return false;
+	}
+
+	state->connected = true;
+	printf("TCP: connected to %s:%u\n", state->ip, state->port);
+	return true;
+}
+
+void tcp_disconnect(TcpState* state)
+{
+	if (state->socket != TCS_SOCKET_INVALID)
+	{
+		tcs_close(&state->socket);
+	}
+	state->connected = false;
+	printf("TCP: disconnected\n");
 }

@@ -826,20 +826,31 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 
     ImGui::Begin("Live Expressions");
 
-	// Transport mode toggle
-	int mode = use_udp ? 1 : 0;
+	// Transport mode toggle: 0=Serial, 1=UDP, 2=TCP
+	int mode = use_tcp ? 2 : (use_udp ? 1 : 0);
 	ImGui::RadioButton("Serial", &mode, 0);
 	ImGui::SameLine();
 	ImGui::RadioButton("UDP", &mode, 1);
-	if (mode == 0 && use_udp)
+	ImGui::SameLine();
+	ImGui::RadioButton("TCP", &mode, 2);
+	if (mode == 0 && (use_udp || use_tcp))
 	{
-		// Switching to Serial — disconnect UDP
-		udp_disconnect(&udp_state);
+		if (use_udp) udp_disconnect(&udp_state);
+		if (use_tcp) tcp_disconnect(&tcp_state);
 		use_udp = false;
+		use_tcp = false;
 	}
 	else if (mode == 1 && !use_udp)
 	{
+		if (use_tcp) tcp_disconnect(&tcp_state);
+		use_tcp = false;
 		use_udp = true;
+	}
+	else if (mode == 2 && !use_tcp)
+	{
+		if (use_udp) udp_disconnect(&udp_state);
+		use_udp = false;
+		use_tcp = true;
 	}
 
 	ImGui::Text("Dartt Address: ");
@@ -847,7 +858,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 	ImGui::SetNextItemWidth(50);
 	ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &ds.address);
 
-	if (!use_udp)
+	if (!use_udp && !use_tcp)
 	{
 		ImGui::SameLine();
 		ImGui::Text("Baudrate: ");
@@ -870,7 +881,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 			}
 		}
 	}
-	else
+	else if (use_udp)
 	{
 		ImGui::SameLine();
 		ImGui::Text("IP: ");
@@ -892,6 +903,30 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 		{
 			if (ImGui::Button("Connect"))
 				udp_connect(&udp_state);
+		}
+	}
+	else if (use_tcp)
+	{
+		ImGui::SameLine();
+		ImGui::Text("IP: ");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(120);
+		ImGui::InputText("##tcp_ip", tcp_state.ip, sizeof(tcp_state.ip));
+		ImGui::SameLine();
+		ImGui::Text("Port: ");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(60);
+		ImGui::InputScalar("##tcp_port", ImGuiDataType_U16, &tcp_state.port);
+		ImGui::SameLine();
+		if (tcp_state.connected)
+		{
+			if (ImGui::Button("Disconnect"))
+				tcp_disconnect(&tcp_state);
+		}
+		else
+		{
+			if (ImGui::Button("Connect"))
+				tcp_connect(&tcp_state);
 		}
 	}
 

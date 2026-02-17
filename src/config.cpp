@@ -349,6 +349,12 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
 		strncpy(udp_state.ip, ip.c_str(), sizeof(udp_state.ip) - 1);
 		udp_state.ip[sizeof(udp_state.ip) - 1] = '\0';
 		udp_state.port = ser_settings.value("udp_port", (uint16_t)5000);
+
+		use_tcp = ser_settings.value("use_tcp", false);
+		std::string tcp_ip = ser_settings.value("tcp_ip", "192.168.1.100");
+		strncpy(tcp_state.ip, tcp_ip.c_str(), sizeof(tcp_state.ip) - 1);
+		tcp_state.ip[sizeof(tcp_state.ip) - 1] = '\0';
+		tcp_state.port = ser_settings.value("tcp_port", (uint16_t)5000);
 	}
 	
     // Parse top-level fields
@@ -418,6 +424,9 @@ void save_serial_settings(json & j, Serial & serial, const dartt_sync_t & ds)
 	serial_settings["use_udp"] = use_udp;
 	serial_settings["udp_ip"] = std::string(udp_state.ip);
 	serial_settings["udp_port"] = udp_state.port;
+	serial_settings["use_tcp"] = use_tcp;
+	serial_settings["tcp_ip"] = std::string(tcp_state.ip);
+	serial_settings["tcp_port"] = tcp_state.port;
 	j["serial_settings"] = serial_settings;
 }
 

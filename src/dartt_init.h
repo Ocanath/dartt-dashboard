@@ -16,9 +16,18 @@ struct UdpState {
 	bool connected;
 };
 
+struct TcpState {
+	TcsSocket socket;
+	char ip[64];
+	uint16_t port;
+	bool connected;
+};
+
 extern Serial serial;
 extern bool use_udp;
+extern bool use_tcp;
 extern UdpState udp_state;
+extern TcpState tcp_state;
 extern unsigned char tx_mem[SERIAL_BUFFER_SIZE];
 extern unsigned char rx_dartt_mem[SERIAL_BUFFER_SIZE];
 extern unsigned char rx_cobs_mem[SERIAL_BUFFER_SIZE];
@@ -26,5 +35,7 @@ extern unsigned char rx_cobs_mem[SERIAL_BUFFER_SIZE];
 void init_ds(dartt_sync_t * ds);
 bool udp_connect(UdpState* state);
 void udp_disconnect(UdpState* state);
+bool tcp_connect(TcpState* state);
+void tcp_disconnect(TcpState* state);
 
 #endif
