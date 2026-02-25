@@ -233,26 +233,35 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
     }
 }
 
+static void adjust_offsets(DarttField& field, uint32_t delta) {
+    field.byte_offset += delta;
+    field.dartt_offset = field.byte_offset / 4;
+    for (auto& child : field.children) {
+        adjust_offsets(child, delta);
+    }
+}
+
 /*
 Expand primitive arrays into individual element children.
 For any field where array_size > 0 && children.empty() && element_nbytes > 0,
 creates array_size children with [i] names and correct offsets/types.
+For struct/union arrays, children[0] holds the template; clones it for remaining elements.
 */
-void expand_array_elements(DarttField& root) 
+void expand_array_elements(DarttField& root)
 {
     std::vector<DarttField*> stack;
     stack.push_back(&root);
-    while (!stack.empty()) 
+    while (!stack.empty())
 	{
         DarttField* f = stack.back();
         stack.pop_back();
 
-        if (f->array_size > 0 && f->children.empty() && f->element_nbytes > 0) 
+        if (f->array_size > 0 && f->children.empty() && f->element_nbytes > 0)
 		{
             FieldType elem_type = parse_field_type(f->type_name);
 
             f->children.resize(f->array_size);
-            for (uint32_t i = 0; i < f->array_size; i++) 
+            for (uint32_t i = 0; i < f->array_size; i++)
 			{
                 DarttField& elem = f->children[i];
                 elem.name = "[" + std::to_string(i) + "]";
@@ -263,9 +272,23 @@ void expand_array_elements(DarttField& root)
                 elem.type_name = f->type_name;
             }
         }
+        else if (f->array_size > 0 && f->children.size() == 1 &&
+                 (f->children[0].type == FieldType::STRUCT || f->children[0].type == FieldType::UNION))
+        {
+            // Template for element [0] is in children[0]; create remaining elements
+            f->children[0].name = "[0]";
+            DarttField tmpl = f->children[0];          // deep copy before resize
+            f->children.resize(f->array_size);
+            f->children[0] = tmpl;                     // restore after potential realloc
+            for (uint32_t i = 1; i < f->array_size; i++) {
+                f->children[i] = tmpl;
+                f->children[i].name = "[" + std::to_string(i) + "]";
+                adjust_offsets(f->children[i], i * f->element_nbytes);
+            }
+        }
 
         // Continue DFS into children (including newly created ones)
-        for (size_t i = f->children.size(); i > 0; i--) 
+        for (size_t i = f->children.size(); i > 0; i--)
 		{
             stack.push_back(&f->children[i - 1]);
         }
