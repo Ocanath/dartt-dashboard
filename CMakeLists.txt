@@ -125,3 +125,8 @@ target_link_libraries(${PROJECT_NAME}
     nlohmann_json::nlohmann_json
     dwarf
 )
+
+# tinycsocket socket libraries (vendored, header-only with TINYCSOCKET_IMPLEMENTATION)
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} wsock32 ws2_32 iphlpapi)
+endif()

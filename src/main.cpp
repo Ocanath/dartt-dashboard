@@ -1,10 +1,16 @@
 #include <cstdio>
 
+#define TINYCSOCKET_IMPLEMENTATION
+
 // Platform headers (must come before GL on Windows)
 #ifdef _WIN32
 #define NOMINMAX
+#include <winsock2.h>
 #include <windows.h>
 #endif
+
+// tinycsocket (must come before SDL - SDL redefines main to SDL_main)
+#include "tinycsocket.h"
 
 // SDL2
 #include <SDL.h>
@@ -125,6 +131,17 @@ int main(int argc, char* argv[])
 	{
 		printf("Warning - no serial connection made\n");
 	}
+
+	if (tcs_lib_init() != TCS_SUCCESS)
+	{
+		printf("Failed to initialize tinycsocket\n");
+	}
+	else
+	{
+		printf("Initialize tinycsocket library success\n");
+	}
+
+
 
 	// Load config (including plotting config)
 	DarttConfig config;

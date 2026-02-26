@@ -19,3 +19,6 @@
 [submodule "external/ELFIO"]
 	path = external/ELFIO
 	url = https://github.com/serge1/ELFIO.git
+[submodule "tinycsocket"]
+	path = external/tinycsocket
+	url = https://github.com/dosshell/tinycsocket

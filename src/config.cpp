@@ -1,7 +1,9 @@
 #include "config.h"
+#include "dartt_init.h"
 #include "plotting.h"
 #include <fstream>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 using json = nlohmann::json;
@@ -347,7 +349,7 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
 	if(j.contains("serial_settings") && j["serial_settings"].is_object())
 	{
 		const json & ser_settings = j["serial_settings"];
-	
+
 		ds.address = ser_settings.value("dartt_serial_address", 0);
 		uint32_t baudrate = ser_settings.value("baudrate", 921600);
 		if(baudrate != serial.get_baud_rate())
@@ -363,7 +365,19 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
 			{
 				printf("Serial failed to connect\n");
 			}
-		}	
+		}
+
+		comm_mode = (CommMode)ser_settings.value("comm_mode", (int)COMM_SERIAL);
+
+		std::string ip = ser_settings.value("udp_ip", "192.168.1.100");
+		strncpy(udp_state.ip, ip.c_str(), sizeof(udp_state.ip) - 1);
+		udp_state.ip[sizeof(udp_state.ip) - 1] = '\0';
+		udp_state.port = ser_settings.value("udp_port", (uint16_t)5000);
+
+		std::string tcp_ip = ser_settings.value("tcp_ip", "192.168.1.100");
+		strncpy(tcp_state.ip, tcp_ip.c_str(), sizeof(tcp_state.ip) - 1);
+		tcp_state.ip[sizeof(tcp_state.ip) - 1] = '\0';
+		tcp_state.port = ser_settings.value("tcp_port", (uint16_t)5000);
 	}
 	
     // Parse top-level fields
@@ -430,6 +444,11 @@ void save_serial_settings(json & j, Serial & serial, const dartt_sync_t & ds)
 	json serial_settings;
 	serial_settings["dartt_serial_address"] = ds.address;
 	serial_settings["baudrate"] = serial.get_baud_rate();
+	serial_settings["comm_mode"] = (int)comm_mode;
+	serial_settings["udp_ip"] = std::string(udp_state.ip);
+	serial_settings["udp_port"] = udp_state.port;
+	serial_settings["tcp_ip"] = std::string(tcp_state.ip);
+	serial_settings["tcp_port"] = tcp_state.port;
 	j["serial_settings"] = serial_settings;
 }
 
