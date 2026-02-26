@@ -15,12 +15,6 @@ struct ParseWork {
     bool is_type_info;  // true = parse as type_info, false = parse as field
 };
 
-// Work item for iterative UI injection
-struct InjectWork {
-    json* j;
-    const DarttField* field;
-};
-
 // Helper: get FieldType from type string
 //TODO: consider falling back to uint32_t if the type is unknown and the size is equal to four. 
 //TODO: cross reference type with nbytes to confirm that the label matches the expected size.
@@ -216,16 +210,6 @@ static void parse_fields_iterative(const json& root_type_info, DarttField& root_
             field.byte_offset = j.value("byte_offset", 0u);
             field.dartt_offset = j.value("dartt_offset", 0u);
 
-            // Parse UI settings if present
-            if (j.contains("ui")) 
-			{
-                const json& ui = j["ui"];
-                field.subscribed = ui.value("subscribed", false);
-                field.expanded = ui.value("expanded", false);
-                field.display_scale = ui.value("display_scale", 1.0f);
-				field.use_display_scale = ui.value("use_display_scale", false);	//may throw error - unsure how this lib call works
-            }
-
             // Queue type_info parsing
             if (j.contains("type_info")) 
 			{
@@ -419,40 +403,6 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
     return true;
 }
 
-// Inject UI settings iteratively using explicit stack
-static void inject_ui_settings_iterative(json& root_json, const std::vector<DarttField>& root_fields) {
-    std::vector<InjectWork> stack;
-
-    // Initialize stack with root fields
-    for (size_t i = 0; i < root_json.size() && i < root_fields.size(); i++) {
-        stack.push_back({&root_json[i], &root_fields[i]});
-    }
-
-    while (!stack.empty()) {
-        InjectWork work = stack.back();
-        stack.pop_back();
-
-        json& j = *work.j;
-        const DarttField& field = *work.field;
-
-        // Add/update ui object for this field
-        json ui;
-        ui["subscribed"] = field.subscribed;
-        ui["expanded"] = field.expanded;
-        ui["display_scale"] = field.display_scale;
-		ui["use_display_scale"] = field.use_display_scale;
-        j["ui"] = ui;
-
-        // Queue children if present (structs/unions)
-        if (j.contains("type_info") && j["type_info"].contains("fields")) {
-            json& json_fields = j["type_info"]["fields"];
-            for (size_t i = 0; i < json_fields.size() && i < field.children.size(); i++) {
-                stack.push_back({&json_fields[i], &field.children[i]});
-            }
-        }
-    }
-}
-
 void save_serial_settings(json & j, Serial & serial, const dartt_sync_t & ds)
 {
 	json serial_settings;
@@ -579,12 +529,6 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config, const P
         return false;
     }
     f_in.close();
-
-    // Inject UI settings into type.fields
-    if (j.contains("type") && j["type"].contains("fields")) 
-	{
-        inject_ui_settings_iterative(j["type"]["fields"], config.root.children);
-    }
 
     // Write flat leaf UI map (covers dynamically-expanded array elements)
     json ui_map = json::object();
