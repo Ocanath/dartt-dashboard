@@ -399,6 +399,20 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
     expand_array_elements(config.root);
     collect_leaves(config.root, config.leaf_list);
 
+    // Apply flat leaf UI map (covers dynamically-expanded array elements)
+    if (j.contains("ui_map") && j["ui_map"].is_object()) {
+        const json& ui_map = j["ui_map"];
+        for (DarttField* leaf : config.leaf_list) {
+            std::string key = std::to_string(leaf->byte_offset) + ":" + leaf->name;
+            if (ui_map.contains(key)) {
+                const json& e = ui_map[key];
+                leaf->subscribed        = e.value("subscribed",        false);
+                leaf->display_scale     = e.value("display_scale",     1.0f);
+                leaf->use_display_scale = e.value("use_display_scale", false);
+            }
+        }
+    }
+
     // Load plotting config if plotter provided
 	load_plotting_config(j, plot, config.leaf_list);
 
@@ -571,6 +585,18 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config, const P
 	{
         inject_ui_settings_iterative(j["type"]["fields"], config.root.children);
     }
+
+    // Write flat leaf UI map (covers dynamically-expanded array elements)
+    json ui_map = json::object();
+    for (const DarttField* leaf : config.leaf_list) {
+        std::string key = std::to_string(leaf->byte_offset) + ":" + leaf->name;
+        json entry;
+        entry["subscribed"]        = leaf->subscribed;
+        entry["display_scale"]     = leaf->display_scale;
+        entry["use_display_scale"] = leaf->use_display_scale;
+        ui_map[key] = entry;
+    }
+    j["ui_map"] = ui_map;
 
     // Save plotting config if plotter provided
 	save_plotting_config(j, plot, config.leaf_list);
