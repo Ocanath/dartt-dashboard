@@ -140,6 +140,7 @@ void init_ds(dartt_sync_t * ds)
 	ds->address = 0;	//must be mapped
 	ds->ctl_base = {};	//must be assigned
 	ds->periph_base = {};	//must be assigned
+	ds->base_offset = 0;
 	ds->msg_type = TYPE_SERIAL_MESSAGE;
 	ds->tx_buf.buf = tx_mem;
 	ds->tx_buf.size = sizeof(tx_mem) - NUM_BYTES_COBS_OVERHEAD;		//DO NOT CHANGE. This is for a good reason. See above note
