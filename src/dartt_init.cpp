@@ -16,8 +16,8 @@ unsigned char rx_cobs_mem[SERIAL_BUFFER_SIZE] = {};
 int tx_blocking(unsigned char addr, dartt_buffer_t * b, void * user_context, uint32_t timeout)
 {
 	cobs_buf_t cb = {
-		.buf = b->buf,
-		.size = b->size,
+		.buf = tx_mem,
+		.size = sizeof(tx_mem),
 		.length = b->len,
 		.encoded_state = COBS_DECODED
 	};
