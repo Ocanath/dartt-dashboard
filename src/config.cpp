@@ -335,6 +335,7 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
 		const json & ser_settings = j["serial_settings"];
 
 		ds.address = ser_settings.value("dartt_serial_address", 0);
+		ds.base_offset = ser_settings.value("dartt_blob_base_offset", 0);
 		uint32_t baudrate = ser_settings.value("baudrate", 921600);
 		if(baudrate != serial.get_baud_rate())
 		{
@@ -407,6 +408,7 @@ void save_serial_settings(json & j, Serial & serial, const dartt_sync_t & ds)
 {
 	json serial_settings;
 	serial_settings["dartt_serial_address"] = ds.address;
+	serial_settings["dartt_blob_base_offset"] = ds.base_offset;
 	serial_settings["baudrate"] = serial.get_baud_rate();
 	serial_settings["comm_mode"] = (int)comm_mode;
 	serial_settings["udp_ip"] = std::string(udp_state.ip);
