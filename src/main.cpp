@@ -33,7 +33,7 @@
 // dartt-protocol
 #include "dartt.h"
 #include "dartt_sync.h"
-#include "checksum.h"
+#include "dartt_crc.h"
 
 // App
 #include "config.h"
