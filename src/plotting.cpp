@@ -4,6 +4,7 @@
 #endif
 #include <GL/gl.h>
 #include <vector>
+#include <algorithm>
 #include "plotting.h"
 
 // fpoint_t definition

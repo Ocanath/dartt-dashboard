@@ -924,6 +924,11 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 		}
 	}
 
+	ImGui::Text("Dartt blob offset: ");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(50);
+	ImGui::InputScalar("##dartt_base_offset", ImGuiDataType_U8, &ds.base_offset);
+
     // Show config info
     ImGui::Text("Symbol: %s", config.symbol.c_str());
     ImGui::Text("Address: %s (%u bytes)", config.address_str.c_str(), config.nbytes);
