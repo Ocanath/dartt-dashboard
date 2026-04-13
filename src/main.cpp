@@ -296,10 +296,9 @@ int main(int argc, char* argv[])
 			for (MemoryRegion& region : write_queue) {
 				sync_fields_to_ctl_buf(config, region);
 
-				dartt_buffer_t slice = {
+				dartt_mem_t slice = {
 					.buf = config.ctl_buf.buf + region.start_offset,
-					.size = region.length,
-					.len = region.length
+					.size = region.length
 				};
 
 				int rc = dartt_write_multi(&slice, &ds);
@@ -318,11 +317,10 @@ int main(int argc, char* argv[])
 			std::vector<MemoryRegion> read_queue = build_read_queue(config);
 			for (MemoryRegion& region : read_queue) 
 			{
-				dartt_buffer_t slice = 
+				dartt_mem_t slice = 
 				{
 					.buf = config.ctl_buf.buf + region.start_offset,
 					.size = region.length,
-					.len = region.length
 				};
 
 
