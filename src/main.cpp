@@ -331,7 +331,8 @@ int main(int argc, char* argv[])
 				} 
 				else 
 				{
-					printf("read error %d\n", rc);
+					printf("read error %d. Purging serial...\n", rc);
+					serial.purge();
 				}
 			}
 		}
