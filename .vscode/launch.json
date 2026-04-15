@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug dartt_dashboard",
+      "name": "Debug dartt_dashboard (Linux)",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/dartt_dashboard",
@@ -11,21 +11,26 @@
       "cwd": "${workspaceFolder}/build",
       "environment": [],
       "externalConsole": false,
-      "linux": {
-        "MIMode": "gdb",
-        "setupCommands": [
-          {
-            "description": "Enable pretty-printing for gdb",
-            "text": "-enable-pretty-printing",
-            "ignoreFailures": true
-          }
-        ]
-      },
-      "windows": {
-        "type": "cppvsdbg",
-        "program": "${workspaceFolder}/build/Debug/dartt_dashboard.exe",
-        "cwd": "${workspaceFolder}/build/Debug"
-      },
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "CMake: build"
+    },
+    {
+      "name": "Debug dartt_dashboard (Windows)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Debug/dartt_dashboard.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/build/Debug",
+      "environment": [],
+      "externalConsole": false,
       "preLaunchTask": "CMake: build"
     }
   ]
