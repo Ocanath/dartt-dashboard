@@ -190,9 +190,9 @@ This function can live in `buffer_sync.cpp` or be a thin wrapper in `main.cpp`.
 
 ---
 
-## Component 3: Serial Mutex for dartt_write_multi
+## Component 3: Serial Mutex for dartt_write_multi and dispatch_read_request
 
-`dartt_write_multi` calls `blocking_tx_callback` which calls `Serial::write`. The read
+`dartt_write_multi` and `dispatch_read_request` call `blocking_tx_callback` and which calls `Serial::write` and/or uses TCP/UDP sockets. The read
 thread also uses the serial handle (RX side). Even though serial is half-duplex, the
 `Serial` object itself may not be thread-safe. Add a mutex around all TX operations.
 
@@ -272,14 +272,6 @@ including the `0x00` COBS delimiter.
 No header. Concatenated COBS frames separated by `0x00` delimiters. This matches the
 wire format exactly — the file can be fed back into `cobs_stream` byte-by-byte for
 offline replay or analysis.
-
-Optionally prefix each frame with a 64-bit microsecond timestamp:
-
-```
-[timestamp_us: uint64_t LE][frame_bytes including 0x00 delimiter]
-[timestamp_us: uint64_t LE][frame_bytes including 0x00 delimiter]
-...
-```
 
 ### API
 
@@ -374,7 +366,7 @@ reverts to request-driven polling via the dispatcher.
 4. **Dispatcher** — replace `dartt_read_multi` call site with TX-only dispatch; add
    `serial_mutex` around all TX paths
 5. **Streaming mode** — add toggle, skip pending-request validation in reader
-6. **Binary logger** — append raw frames + timestamps to `.bin` file
+6. **Binary logger** — append raw frames to `.bin` file
 7. **WAV writer** — `WavWriter` helper class, integrate into `Line::enqueue_data`
 8. **Folder / CMakeLists** — extract `src/reader/` as its own build target
 9. **Regression testing** — verify parser-desync issue (see
@@ -388,15 +380,42 @@ reverts to request-driven polling via the dispatcher.
 - **Half-duplex serial and simultaneous RX/TX**: Does the hardware need the line to be
   idle before a new request? If so, the serial mutex may need to block the reader thread
   during TX, not just protect the `Serial` object.
+	- Answer: Yes. This program acts as the `controller` device in normal operation, 
+	where only dispatched **read requests** result in the target/peripheral emenating a 
+	response. It may be half duplex if in RS485 mode, so I think the tx dispatchers have to 
+	do something to prevent generating line activity if the read thread is active to 
+	prevent collisions. Currently thinking that the reader thread should block tx, and that 
+	all tx operations (read request dispatch and write_multi) may belong in their own thread.
+	That way if we're in streaming mode there's no collisions, and the write thread can grab the 
+	resource safely in 'normal mode' since there's a 1:1 read activity with read request in normal 
+	operation.
+
+
 - **`dartt_parse_read_reply` reuse vs. custom parser**: The existing function validates
   `payload.msg.len == original_msg.num_bytes + 2`. In streaming mode we don't have
   `original_msg`. Either relax the check or write a streaming-mode variant.
+	- I think the best way to handle this is to cheat - create a local scoped copy of original_msg, load it with payload.msg.len + 2,
+	and keep the library as-is. It's reasonable for parse_read_reply to have some expected length argument, and it's easy to bypass
+	for a use-case like ours using this method. Plus the original_msg is a super lighweight type, an insignificant impact in the hot loop
+	which is dominated by IO timing anyway.
+
+
 - **Multi-config support**: `periph_buf` is per `DarttConfig`. If multiple configs are
   loaded simultaneously the reader needs to route frames to the correct buffer by address
   or index range.
+	- Only one config is loaded at a time. To handle multiple config the user should just spawn multiple dashboard program instances.
+
 - **WAV sample rate**: `Line::enqueue_data` timestamp resolution depends on
   `SDL_GetTicks64()` (millisecond). Audio rates need microsecond timestamps — consider
   `std::chrono::steady_clock` in the read thread.
+	- Yes. We should create a dedicated get_microseconds() subroutine that uses std::chrono for audio writing.
+	Also - will we be able to set sampling rate this way? IIRC wav files expect a steady sampling rate. 
+
 - **Bin log with/without timestamp prefix**: Timestamped format is more useful for
   analysis but changes the file format. Decide before implementation to avoid breaking
   offline tools.
+
+	- I don't care to add timestamps. Peripherals can include timestamps as part of their layout - prepending them clutters the stream
+	 and adds potentially unnecessary and/or redundant data. Just raw cobs delimited data, pretty much just as-is content from the serial 
+	 buffer drain.
+
