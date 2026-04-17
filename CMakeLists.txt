@@ -55,6 +55,9 @@ add_subdirectory(external/libdwarf)
 # ELFIO (header-only library for ELF symbol table access)
 # No build step required, just include directory
 
+# dartt_reader (provides: dartt_reader)
+add_subdirectory(src/reader)
+
 # ============================================================================
 # Main Application
 # ============================================================================
@@ -117,6 +120,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 target_link_libraries(${PROJECT_NAME}
     imgui
+    dartt_reader
     cobs
     PPP
     serial
