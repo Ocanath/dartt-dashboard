@@ -16,120 +16,164 @@ push unsolicited read-reply frames without a prior request.
 ```
 src/
   reader/
-    dartt_reader.h       # DarttReader class declaration
-    dartt_reader.cpp     # DarttReader implementation
+    dartt_link.h         # DarttLink class declaration
+    dartt_link.cpp       # DarttLink implementation
     CMakeLists.txt       # Standalone build target for easy submodule linking
   plotting.h / plotting.cpp   (modified — add WAV writer)
-  dartt_init.h / dartt_init.cpp  (modified — serial mutex)
-  main.cpp               (modified — remove dartt_read_multi loop, start reader thread)
+  dartt_init.h / dartt_init.cpp  (simplified — serial/socket ownership moves to DarttLink)
+  main.cpp               (modified — remove dartt_read_multi loop, start DarttLink)
   buffer_sync.h / buffer_sync.cpp  (possibly modified — read-side sync helpers)
 ```
 
 ---
 
-## Component 1: DarttReader Class
+## Component 1: DarttLink Class
+
+`DarttLink` replaces `DarttReader` and is the sole owner of the transport handle
+(Serial, UDP socket, or TCP socket). It runs two threads: a **read thread** that
+continuously drains the RX kernel buffer, and a **write thread** that drains a TX
+queue dispatched from the rendering loop. Protocol semantics (dartt frame types,
+periph_buf layout) live above DarttLink; the class itself is transport-agnostic and
+treats all outgoing data as opaque pre-encoded byte frames.
 
 ### Responsibilities
-- Own a `std::thread` that runs for the lifetime of the connection
-- Drain RX bytes one at a time from `Serial::read()` or socket `recv()`
-- Feed each byte into `cobs_stream()` to accumulate COBS frames
-- On a complete frame (COBS delimiter `0x00`), parse it as a dartt payload
-- If the payload is a read-reply, write the data into the correct slice of `periph_buf`
-- Notify / wake the main thread that new data is available (condition variable or atomic flag)
-- Optionally write raw byte-stuffed frames to a `.bin` log file
+- Own the Serial/UDP/TCP handle exclusively — no other code touches it
+- **Read thread**: drain RX bytes via `cobs_stream()`, decode frames, write read-reply
+  data into `periph_buf` under `periph_buf_mutex`
+- **Write thread**: block on a condition variable, dequeue pre-encoded raw frames, send
+  them over the wire
+- Arbitrate half-duplex bus access between the two threads via `bus_mutex_`
+- Optionally write raw COBS-delimited read-reply frames to a `.bin` log file
+
+### Half-duplex vs Full-duplex (`is_full_duplex`)
+
+In half-duplex mode (RS485, default), the bus is shared: only one direction can be
+active at a time. The read thread acquires `bus_mutex_` on the first byte of each
+incoming frame and holds it through `process_frame()`, releasing it after. The write
+thread acquires `bus_mutex_` before calling `send_raw()`.
+
+**Intentional starvation in streaming mode**: when the peripheral is streaming data
+gaplessly (e.g. continuous audio), the read thread will hold `bus_mutex_` nearly
+continuously. The write thread will starve — this is correct behaviour. In a
+hardware half-duplex system the peripheral owns the bus during streaming; any TX
+attempt from the controller would cause a bus collision. Starvation prevents that.
+There is no yield or sleep added to the reader between frames; the writer simply
+waits until there is a gap.
+
+In full-duplex mode (`is_full_duplex = true`), TX and RX are independent lines.
+Both threads skip `bus_mutex_` entirely and operate without coordination.
+
+### TX Queue Design
+
+The rendering loop (and any other caller) pushes **complete, pre-encoded raw frames**
+into the TX queue via `enqueue_frame()`. DarttLink does not know or care whether a
+frame is a write request, a read request, or anything else — it just sends bytes.
+This means dartt frame construction (COBS encoding, address, CRC) happens on the
+caller side before enqueue.
+
+The write thread blocks on a `std::condition_variable` when the queue is empty, so
+it consumes zero CPU while idle.
 
 ### Class Interface (sketch)
 
 ```cpp
-class DarttReader {
+class DarttLink {
 public:
-    // Initialise with the shared dartt_sync_t so we can reach periph_buf,
-    // the comms handles, and the message type (serial / UDP / TCP).
     void init(dartt_sync_t* sync, CommMode mode, Serial* serial,
-              tcs_socket_t* sock, Plotter* plotter);
+              UdpState* udp, TcpState* tcp);
 
-    void start();   // spawn thread
-    void stop();    // signal thread + join
+    void start();   // spawn read + write threads
+    void stop();    // signal both threads + join
 
-    // Streaming mode: accept unsolicited frames (no pending request needed)
-    bool streaming_mode = false;
+    // Push a complete pre-encoded COBS frame onto the TX queue
+    void enqueue_frame(std::vector<uint8_t> frame);
 
-    // Optional logging
+    bool is_full_duplex    = false;   // skip bus_mutex on both threads when true
+    bool streaming_mode    = false;   // accept unsolicited read-reply frames
     bool bin_logging_enabled = false;
     void open_bin_log(const std::string& path);
     void close_bin_log();
 
-    // Mutex that callers must hold when accessing periph_buf
+    // Callers must hold this when reading periph_buf or DarttField values
     std::mutex periph_buf_mutex;
 
-    // Set by the request dispatcher so the reader can validate non-streaming replies
-    // (optional; reader can also just trust the index embedded in the reply)
-    struct PendingRequest {
-        uint16_t index;
-        uint16_t num_bytes;
-    };
-    void push_pending_request(PendingRequest req);
-
 private:
-    void thread_loop();
-    void handle_frame(const uint8_t* cobs_decoded_buf, size_t len);
-    void write_to_periph_buf(uint16_t reply_index, const uint8_t* data,
-                             size_t data_len);
+    void read_loop();
+    void write_loop();
+    void process_frame();
+    void send_raw(const uint8_t* data, size_t len);
+    int  read_byte(uint8_t& out);
 
-    std::thread           thread_;
-    std::atomic<bool>     running_{false};
+    std::thread        read_thread_;
+    std::thread        write_thread_;
+    std::atomic<bool>  running_{false};
 
-    // COBS accumulation state
-    cobs_buf_t            cobs_enc_buf_;
-    cobs_buf_t            cobs_dec_buf_;
-    // (or use cobs_stream byte-by-byte if reading one byte at a time from serial)
+    // Half-duplex bus arbitration (ignored when is_full_duplex == true)
+    std::mutex         bus_mutex_;
 
-    dartt_sync_t*         sync_;
-    CommMode              comm_mode_;
-    Serial*               serial_;
-    tcs_socket_t*         socket_;
-    Plotter*              plotter_;
+    // TX queue
+    std::queue<std::vector<uint8_t>> tx_queue_;
+    std::mutex                       tx_queue_mutex_;
+    std::condition_variable          tx_cv_;
 
-    std::FILE*            bin_log_file_ = nullptr;
+    // COBS accumulation (read thread only)
+    uint8_t    enc_mem_[DARTT_LINK_BUF_SIZE];
+    uint8_t    dec_mem_[DARTT_LINK_BUF_SIZE];
+    cobs_buf_t cobs_enc_{};
+    cobs_buf_t cobs_dec_{};
 
-    // Pending request queue (non-streaming mode)
-    std::mutex            pending_mutex_;
-    std::queue<PendingRequest> pending_queue_;
+    // Raw wire byte staging for bin logger
+    uint8_t    raw_frame_[DARTT_LINK_BUF_SIZE + 1];
+    size_t     raw_frame_len_ = 0;
+
+    dartt_sync_t* sync_      = nullptr;
+    CommMode      comm_mode_ = COMM_SERIAL;
+    Serial*       serial_    = nullptr;
+    UdpState*     udp_       = nullptr;
+    TcpState*     tcp_       = nullptr;
+
+    std::FILE*    bin_log_file_ = nullptr;
 };
 ```
 
-### Thread Loop Logic
+### Read Loop Logic
+
+```
+acquire unique_lock(bus_mutex_, defer) — only used when !is_full_duplex
+
+loop:
+  b = read_byte()
+  if no data: continue
+
+  if !is_full_duplex && !lock.owns: lock.lock()   // claim bus on first byte
+
+  accumulate b into raw_frame_
+  ret = cobs_stream(b, enc, dec)
+
+  if COBS_SUCCESS:
+      process_frame()
+      reset enc, raw_frame_
+      if !is_full_duplex: lock.unlock()            // release between frames → writer can win
+
+  if COBS_ERROR_SERIAL_OVERRUN:
+      reset enc, raw_frame_
+      if !is_full_duplex: lock.unlock()
+```
+
+### Write Loop Logic
 
 ```
 loop:
-  read N bytes from serial or socket (non-blocking or short timeout)
-  for each byte b:
-      ret = cobs_stream(b, &cobs_enc_buf_, &cobs_dec_buf_)
-      if ret == COBS_COMPLETE:
-          handle_frame(cobs_dec_buf_.buf, cobs_dec_buf_.length)
-          reset cobs_enc_buf_.length = 0
-```
+  wait on tx_cv_ until tx_queue non-empty or !running
 
-**Alternative**: If `Serial::read_until_delimiter` is more efficient on the platform,
-read a full COBS frame at once (up to 0x00), then call `cobs_decode_double_buffer`.
-This is essentially what `rx_blocking` does today, but off the main thread.
+  frame = tx_queue_.front(); pop
 
-### Frame Handling
-
-```
-handle_frame():
-  dartt_frame_to_payload(&cobs_dec_frame, msg_type, PAYLOAD_MODE_RX, &pld)
-  if pld is read-reply:
-      if bin_logging_enabled:
-          fwrite(raw_cobs_bytes_including_delimiter, ...)
-      if streaming_mode OR pending_queue has matching request:
-          acquire periph_buf_mutex
-          write data into periph_buf at correct byte offset
-          release periph_buf_mutex
-          acquire plotter_mutex
-          update plotter Line sources
-          release plotter_mutex
-          set data_ready_flag
+  if !is_full_duplex:
+      lock(bus_mutex_)            // blocks until reader releases (may starve in streaming)
+      send_raw(frame)
+      unlock
+  else:
+      send_raw(frame)             // full-duplex: no coordination needed
 ```
 
 #### Index Offset Handling in Streaming Mode
@@ -150,67 +194,69 @@ derive `data_len = payload.msg.len - NUM_BYTES_READ_REPLY_OVERHEAD_PLD`.
 
 ---
 
-## Component 2: Read Request Dispatcher
+## Component 2: TX Queue Dispatch (replaces dartt_read_multi + dartt_write_multi call sites)
 
-Replace the `dartt_read_multi` call site in `main.cpp` with a dispatcher that only
-sends the read request frame (TX side) and does **not** wait for the reply.
+Both write requests and read requests are dispatched from the rendering loop by
+constructing a complete COBS-encoded dartt frame and pushing it into
+`DarttLink::enqueue_frame()`. DarttLink does not know or care what kind of frame it
+is — it just sends bytes when the write thread can acquire the bus.
+
+This means `dartt_read_multi` and `dartt_write_multi` are **removed** from the
+rendering loop entirely. Their frame-construction logic (chunking, index calculation,
+COBS encoding) is reused but the TX callback is replaced by `enqueue_frame()`.
 
 ### What Changes in `main.cpp`
 
 Before:
 ```cpp
 // for each region:
+dartt_write_multi(&slice, &ds);          // blocking send
 dartt_read_multi(&slice, &ds);           // blocking send + blocking receive
 sync_periph_buf_to_fields(config, region);
 ```
 
 After:
 ```cpp
-// for each region (non-streaming mode):
-dispatch_read_request(&slice, &ds);      // send request frame only, push PendingRequest
-// ... DarttReader thread handles the reply asynchronously
-// main thread checks data_ready_flag each frame and calls sync_periph_buf_to_fields
+// for each dirty region:
+enqueue_write_frames(config, region, dartt_link);   // builds + enqueues COBS frames
+
+// for each subscribed region (non-streaming mode):
+enqueue_read_request_frames(config, region, dartt_link);  // builds + enqueues COBS frames
+
+// DarttLink write thread handles TX; DarttLink read thread handles replies.
+// Main thread checks data_ready_flag and calls sync_periph_buf_to_fields when set.
 ```
 
-In streaming mode, no requests are dispatched at all — the main thread only consumes
-whatever the reader thread has written.
+In streaming mode, `enqueue_read_request_frames` is not called — the peripheral
+dispatches its own read-reply frames and the read thread consumes them.
 
-### `dispatch_read_request` (sketch)
+### Frame Construction Helpers (sketch)
 
 ```cpp
-void dispatch_read_request(dartt_mem_t* ctl, dartt_sync_t* psync) {
-    // Build read frame(s) exactly as dartt_read_multi does (chunking logic),
-    // but only call blocking_tx_callback — skip blocking_rx_callback entirely.
-    // For each chunk, push a PendingRequest into DarttReader's queue.
-    // Wrap the TX call in serial_mutex.
-}
+// Build and enqueue COBS-encoded write frames for a dirty memory region.
+// Mirrors dartt_write_multi chunking but pushes to TX queue instead of blocking TX.
+void enqueue_write_frames(DarttConfig& cfg, MemoryRegion& region, DarttLink& link);
+
+// Build and enqueue COBS-encoded read request frames for a subscribed region.
+// Mirrors dartt_read_multi chunking but pushes to TX queue instead of blocking TX.
+void enqueue_read_request_frames(DarttConfig& cfg, MemoryRegion& region, DarttLink& link);
 ```
 
-This function can live in `buffer_sync.cpp` or be a thin wrapper in `main.cpp`.
+These can live in `buffer_sync.cpp` alongside the existing coalescing helpers.
 
 ---
 
-## Component 3: Serial Mutex for dartt_write_multi and dispatch_read_request
+## Component 3: Transport Ownership
 
-`dartt_write_multi` and `dispatch_read_request` call `blocking_tx_callback` and which calls `Serial::write` and/or uses TCP/UDP sockets. The read
-thread also uses the serial handle (RX side). Even though serial is half-duplex, the
-`Serial` object itself may not be thread-safe. Add a mutex around all TX operations.
+`DarttLink` is the **sole owner** of Serial / UdpState / TcpState. All other code that
+previously held or called into these handles (dartt_init.cpp callbacks, main.cpp) must
+route through `DarttLink::enqueue_frame()` for TX. The `blocking_tx_callback` and
+`blocking_rx_callback` fields of `dartt_sync_t` are no longer used for live comms
+(they may still be needed for any remaining synchronous bootstrap operations during
+init, TBD).
 
-```cpp
-std::mutex serial_mutex;
-
-// Wrap dartt_write_multi calls:
-{
-    std::lock_guard<std::mutex> lock(serial_mutex);
-    dartt_write_multi(&slice, &ds);
-}
-
-// dispatch_read_request must also hold serial_mutex when calling blocking_tx_callback.
-```
-
-Pass `serial_mutex` (or a pointer to it) into `DarttReader` so the reader can avoid
-reading while a write is in progress if needed (e.g. if the hardware is strict about
-not receiving while transmitting).
+The `serial_mutex` that previously had to be passed around externally is now internal
+to DarttLink as `bus_mutex_`. No other translation unit needs to know it exists.
 
 ---
 
@@ -323,19 +369,21 @@ File naming convention: `dartt_plot_YYYYMMDD_HHMMSS.wav`
 
 ## Thread Safety Summary
 
-| Shared Resource     | Accessed by                  | Protection            |
-|---------------------|------------------------------|-----------------------|
-| `Serial` handle (TX)| main thread, read dispatcher | `serial_mutex`        |
-| `Serial` handle (RX)| DarttReader thread           | owned exclusively     |
-| `periph_buf`        | DarttReader thread (write),  | `periph_buf_mutex`    |
-|                     | main thread (read for UI)    |                       |
-| `DarttField.value`  | DarttReader thread (write),  | `periph_buf_mutex`    |
-|                     | UI thread (read/display)     | (same lock)           |
-| `Line::points`      | DarttReader thread (enqueue),| `Plotter::plot_mutex` |
-|                     | render thread (iterate)      |                       |
-| `bin_log_file_`     | DarttReader thread only      | no lock needed        |
-| `WavWriter` buffers | DarttReader thread (write),  | `Line::wav_mutex`     |
-|                     | stop() / flush               |                       |
+| Shared Resource         | Accessed by                        | Protection              |
+|-------------------------|------------------------------------|-------------------------|
+| Serial / socket handle  | DarttLink read thread (RX)         | `bus_mutex_` (half-dup) |
+|                         | DarttLink write thread (TX)        | none (full-dup)         |
+| `tx_queue_`             | rendering thread (enqueue),        | `tx_queue_mutex_`       |
+|                         | DarttLink write thread (dequeue)   | + `tx_cv_`              |
+| `periph_buf`            | DarttLink read thread (write),     | `periph_buf_mutex`      |
+|                         | main/UI thread (read for display)  |                         |
+| `DarttField.value`      | DarttLink read thread (write),     | `periph_buf_mutex`      |
+|                         | UI thread (read/display)           | (same lock)             |
+| `Line::points`          | DarttLink read thread (enqueue),   | `Plotter::plot_mutex`   |
+|                         | render thread (iterate)            |                         |
+| `bin_log_file_`         | DarttLink read thread only         | no lock needed          |
+| `WavWriter` buffers     | DarttLink read thread (write),     | `Line::wav_mutex`       |
+|                         | stop() / flush                     |                         |
 
 ---
 
@@ -357,21 +405,21 @@ reverts to request-driven polling via the dispatcher.
 
 ## Implementation Order
 
-1. **DarttReader skeleton** — thread, cobs_stream loop, no parsing yet (just prints
-   frame lengths)
+1. **DarttLink skeleton** — rename from DarttReader; add write thread + TX queue +
+   `bus_mutex_` + `is_full_duplex` flag; read thread unchanged from prior work;
+   write thread blocks on `tx_cv_`, dequeues raw frames, calls `send_raw()`
 2. **Frame parsing** — plug in `dartt_frame_to_payload` + custom streaming reply parser,
-   write to `periph_buf` under mutex
+   write to `periph_buf` under `periph_buf_mutex`
 3. **Plotter integration** — hold `plot_mutex`, call `enqueue_data` from read thread;
    add lock to `Plotter::render()`
-4. **Dispatcher** — replace `dartt_read_multi` call site with TX-only dispatch; add
-   `serial_mutex` around all TX paths
-5. **Streaming mode** — add toggle, skip pending-request validation in reader
-6. **Binary logger** — append raw frames to `.bin` file
+4. **TX queue dispatch helpers** — `enqueue_write_frames` and
+   `enqueue_read_request_frames` in `buffer_sync.cpp`; remove `dartt_read_multi` /
+   `dartt_write_multi` call sites from `main.cpp`
+5. **Streaming mode** — add toggle; skip read-request dispatch when enabled
+6. **Binary logger** — append raw COBS frames to `.bin` file from read thread
 7. **WAV writer** — `WavWriter` helper class, integrate into `Line::enqueue_data`
-8. **Folder / CMakeLists** — extract `src/reader/` as its own build target
-9. **Regression testing** — verify parser-desync issue (see
-   `todo/parser-desync-investigation.md`) is resolved or at least not worsened; confirm
-   write path (`dartt_write_multi`) still works under `serial_mutex`
+8. **Regression testing** — verify parser-desync issue (see
+   `todo/parser-desync-investigation.md`) is resolved or at least not worsened
 
 ---
 
