@@ -22,3 +22,6 @@
 [submodule "tinycsocket"]
 	path = external/tinycsocket
 	url = https://github.com/dosshell/tinycsocket
+[submodule "external/libsoundio"]
+	path = external/libsoundio
+	url = https://github.com/andrewrk/libsoundio
