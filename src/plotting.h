@@ -44,8 +44,9 @@ public:
 	float yscale;	//scale the display_ value by one additional scalar  for plotting
 	float yoffset;
 
-	//queue size
 	uint32_t enqueue_cap;
+	size_t   head_;   // index of oldest sample
+	size_t   count_;  // number of valid samples
 
 	Line();
 	Line(int capacity);

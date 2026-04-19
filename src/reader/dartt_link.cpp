@@ -197,8 +197,16 @@ void DarttLink::read_loop()
             int ret = cobs_stream(b, &cobs_enc_, &cobs_dec_);
             if (ret == COBS_SUCCESS)
             {
-                process_frame();
+    			process_frame();
                 cobs_enc_.length = 0;
+				if (awaiting_reply_ == false)
+				{
+					if (bus_lock.owns_lock())
+					{
+						bus_lock.unlock();
+					}
+					dispatch_read_requests(bus_lock);
+				}
             }
             else if (ret == COBS_ERROR_SERIAL_OVERRUN)
             {
