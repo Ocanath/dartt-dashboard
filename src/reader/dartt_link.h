@@ -16,6 +16,10 @@
 
 #define DARTT_LINK_BUF_SIZE 512
 
+#define NUM_BYTES_COBS_OVERHEAD	2	//we have to tell dartt our serial buffers are smaller than they are, so the COBS layer has room to operate. This allows for functional multiple message handling with write_multi and read_multi for large configs
+
+
+
 class DarttLink
 {
 public:
@@ -82,11 +86,31 @@ public:
     TcpState     tcp;
 
 private:
+
+	struct read_request_backing_store_t
+	{
+		unsigned char mem[
+			NUM_BYTES_ADDRESS +
+			NUM_BYTES_INDEX +
+			NUM_BYTES_NUMWORDS_READREQUEST +
+			NUM_BYTES_CHECKSUM +
+			NUM_BYTES_COBS_OVERHEAD
+		];
+
+		size_t len;
+	};
+
+
     void read_loop();
     void write_loop();
     void process_frame();
     void send_raw(const uint8_t* data, size_t len);
     int  read_bytes(uint8_t* buf, int max);
+
+	void dispatch_read_requests();	//go thru the subscribed regions, create read requests, to fill the queue of outgoing. Called every time the read request queue is drained.
+	int create_read_request_frame(dartt_mem_t & ctl, read_request_backing_store_t & frame);
+
+	size_t target_serbuf_rx_size = 32;	//TODO: make a setter/getter for this? or set on init
 
     std::thread        read_thread_;
     std::thread        write_thread_;

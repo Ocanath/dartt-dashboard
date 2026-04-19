@@ -2,9 +2,6 @@
 
 #include <cstring>
 
-#define NUM_BYTES_COBS_OVERHEAD	2	//we have to tell dartt our serial buffers are smaller than they are, so the COBS layer has room to operate. This allows for functional multiple message handling with write_multi and read_multi for large configs
-
-
 
 DarttLink::DarttLink(dartt_mem_t & ctl, dartt_mem_t & periph)
 {
@@ -127,6 +124,94 @@ void DarttLink::read_loop()
             // Hold the lock for the rest of the chunk regardless — more frames may follow
         }
     }
+}
+
+
+int DarttLink::create_read_request_frame(dartt_mem_t & ctl, read_request_backing_store_t & frame)
+{
+	assert(ctl_base.size == periph_base.size);
+    assert(ctl.buf != NULL && ctl_base.buf != NULL);
+	assert(periph_base.buf != NULL);
+
+	frame.len = 0;	//delete first - make sure it's invalidated until we finish
+
+    // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
+    if(ctl.size == 0)
+    {
+        return DARTT_ERROR_INVALID_ARGUMENT;
+    }
+    if (ctl.buf < ctl_base.buf || ctl.buf >= (ctl_base.buf + ctl_base.size))
+    {
+        return DARTT_ERROR_MEMORY_OVERRUN;
+    }
+    if (ctl.buf + ctl.size > ctl_base.buf + ctl_base.size)
+    {
+        return DARTT_ERROR_MEMORY_OVERRUN;
+    }
+    if (ctl.buf + ctl.size > ctl_base.buf + ctl_base.size)
+    {
+        return DARTT_ERROR_MEMORY_OVERRUN;
+    }
+    //ensure the read reply we're requesting won't overrun the read buffer
+    size_t nb_overhead_read_reply = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
+    if(msg_type == TYPE_SERIAL_MESSAGE)
+    {
+		nb_overhead_read_reply += NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM;
+    }
+    else if(msg_type == TYPE_ADDR_MESSAGE)
+    {
+		nb_overhead_read_reply += NUM_BYTES_CHECKSUM;
+    }
+	if(ctl.size + nb_overhead_read_reply > target_serbuf_rx_size)
+	{
+		return DARTT_ERROR_MEMORY_OVERRUN;
+	}
+
+    unsigned char misc_address = dartt_get_complementary_address(address);
+
+    int field_index = index_of_field( (void*)(&ctl.buf[0]), (void*)(&ctl_base.buf[0]), ctl_base.size );
+    if(field_index < 0)
+    {
+        return field_index; //negative values are error codes, return if you get negative value
+    }
+    misc_read_message_t read_msg =
+    {
+            .address = misc_address,
+            .index = (uint16_t)(field_index + base_offset),	//load with offset to the destination
+            .num_bytes = (uint16_t)ctl.size
+    };
+
+	dartt_buffer_t tx_buf = {
+		.buf = frame.mem,
+		.size = sizeof(frame.mem),
+		.len = 0
+	};
+    int rc = dartt_create_read_frame(&read_msg, msg_type, &tx_buf);
+    if(rc != DARTT_PROTOCOL_SUCCESS)
+    {
+        return rc;
+    }
+	cobs_buf_t cobs_tx = {
+		.buf = tx_buf.buf,
+		.size = tx_buf.size,
+		.length = tx_buf.len,
+		.encoded_state = COBS_DECODED
+	};
+	rc = cobs_encode_single_buffer(&cobs_tx);
+	if(rc != COBS_SUCCESS)
+	{
+		return rc;
+	}
+	frame.len = cobs_tx.length;//finally load length to validate frame
+	return rc;
+}
+
+
+
+
+void DarttLink::dispatch_read_requests()
+{
+
 }
 
 // ---------------------------------------------------------------------------
