@@ -46,9 +46,21 @@ void DarttLink::enqueue_frame(dartt_buffer_t & frame)
 {
     {
         std::lock_guard<std::mutex> lock(tx_queue_mutex_);
-        // tx_queue_.push(std::move(frame));	//TODO: implement this
+        tx_queue_.push(std::vector<uint8_t>(frame.buf, frame.buf + frame.len));
     }
     tx_cv_.notify_one();
+}
+
+void DarttLink::subscribe_region(dartt_mem_t region)
+{
+    std::lock_guard<std::mutex> lock(subscribed_mutex_);
+    subscribed_regions_.push_back(region);
+}
+
+void DarttLink::clear_subscriptions()
+{
+    std::lock_guard<std::mutex> lock(subscribed_mutex_);
+    subscribed_regions_.clear();
 }
 
 void DarttLink::set_read_reply_callback(read_reply_cb_t cb, void* ctx)

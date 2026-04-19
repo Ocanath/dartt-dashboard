@@ -16,11 +16,11 @@
 
 #define DARTT_LINK_BUF_SIZE 512
 
-class DarttLink 
+class DarttLink
 {
 public:
 
-	enum 
+	enum
 	{
 		COMM_SERIAL = 0,
 		COMM_UDP = 1,
@@ -38,6 +38,11 @@ public:
     // Push a complete pre-encoded COBS frame onto the TX queue.
     // DarttLink treats it as opaque bytes — caller handles dartt framing.
 	void enqueue_frame(dartt_buffer_t & frame);
+
+    // Subscribe a memory region for automatic read polling by the write thread.
+    // Coalescing is the caller's responsibility — DarttLink has no field knowledge.
+    void subscribe_region(dartt_mem_t region);
+    void clear_subscriptions();
 
     // Half-duplex (default): bus_mutex_ arbitrates read vs write threads.
     // Full-duplex: both threads skip bus_mutex_ entirely.
@@ -62,7 +67,6 @@ public:
     // written by the read thread.
     std::mutex periph_buf_mutex;
 
-
 	//dartt sync things
 	unsigned char address;	 // Target peripheral address
 	dartt_mem_t ctl_base;			// Bounding region of controller control structure
@@ -70,7 +74,6 @@ public:
 	uint16_t base_offset;			//offset into the true peripheral blob. Applied when the dartt_sync_t is indexing into a larger blob, with unknown surrounding structure. Should be set to 0 in most situations
 	serial_message_type_t msg_type;
 
-	//
 	int      comm_mode;
 
 	//hardware interfaces
@@ -100,14 +103,15 @@ private:
     std::mutex                       tx_queue_mutex_;
     std::condition_variable          tx_cv_;
 
+    // Subscribed regions — write thread polls these when queue is empty.
+    std::vector<dartt_mem_t> subscribed_regions_;
+    std::mutex               subscribed_mutex_;
+
     // COBS accumulation (read thread only — no sharing, no lock needed)
     uint8_t    enc_mem_[DARTT_LINK_BUF_SIZE];
     uint8_t    dec_mem_[DARTT_LINK_BUF_SIZE];
     cobs_buf_t cobs_enc_{};
     cobs_buf_t cobs_dec_{};
-
-
-
 
     read_reply_cb_t on_read_reply_cb_  = nullptr;
     void*           on_read_reply_ctx_ = nullptr;
