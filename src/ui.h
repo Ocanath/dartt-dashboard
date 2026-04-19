@@ -5,7 +5,6 @@
 #include "config.h"
 #include "plotting.h"
 #include "serial.h"
-#include "audio/audio_engine.h"
 
 // Initialize ImGui (call after SDL/OpenGL setup)
 bool init_imgui(SDL_Window* window, SDL_GLContext gl_context);
@@ -18,9 +17,7 @@ void shutdown_imgui();
 bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path, DarttLink & dl);
 
 // Render the plot settings menu with tree selectors for X/Y sources
-bool render_plotting_menu(Plotter& plot, DarttField& root,
-                          const std::vector<DarttField*>& subscribed_list,
-                          AudioEngine& audio);
+bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<DarttField*> &subscribed_list);
 
 // Helper: set subscribed state on field and all children (iterative)
 void set_subscribed_all(DarttField* root, bool subscribed);

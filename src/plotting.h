@@ -48,8 +48,6 @@ public:
 	size_t   head_;   // index of oldest sample
 	size_t   count_;  // number of valid samples
 
-	bool audio_subscribe = false;
-
 	Line();
 	Line(int capacity);
 
