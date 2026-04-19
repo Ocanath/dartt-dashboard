@@ -230,6 +230,7 @@ int main(int argc, char* argv[])
 		if (pending_json_load)
 		{
 			pending_json_load = false;
+			dl.stop();
 			// Detach external references before replacing config
 			for (size_t i = 0; i < plot.lines.size(); i++)
 			{
@@ -263,6 +264,7 @@ int main(int argc, char* argv[])
 		// --- Drag-and-drop: ELF popup + load ---
 		if (render_elf_load_popup(&show_elf_popup, dropped_file_path, var_name_buf, sizeof(var_name_buf), elf_load_error))
 		{
+			dl.stop();
 			// User clicked Load - detach external references
 			for (size_t i = 0; i < plot.lines.size(); i++)
 			{
@@ -379,6 +381,8 @@ int main(int argc, char* argv[])
 
 	// Save UI settings back to config
 	// save_dartt_config("config.json", config);
+
+	dl.stop();
 
 	// Cleanup
 	shutdown_imgui();
