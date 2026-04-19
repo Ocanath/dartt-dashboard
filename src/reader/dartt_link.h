@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdio>
 #include <mutex>
@@ -57,8 +58,6 @@ public:
     // Full-duplex: both threads skip bus_mutex_ entirely.
     bool is_full_duplex = false;
 
-    // Streaming mode: accept unsolicited read-reply frames from the peripheral.
-    bool streaming_mode = false;
 
     // Binary frame logger — off by default. Appends raw COBS-delimited
     // read-reply frames verbatim from the wire, no timestamp prefix.
@@ -96,6 +95,7 @@ private:
     void read_loop();
     void write_loop();
     void process_frame();
+    void dispatch_read_requests(std::unique_lock<std::mutex>& bus_lock);
     void send_raw(const uint8_t* data, size_t len);
     int  read_bytes(uint8_t* buf, int max);
 
@@ -124,6 +124,10 @@ private:
 
 	std::vector<std::vector<uint8_t>> read_request_list_;
     std::mutex                        read_request_mutex_;
+    size_t                            read_request_index_    = 0;
+    int                               read_request_timeout_ms = 100;
+    bool                              awaiting_reply_        = false;
+    std::chrono::steady_clock::time_point last_request_time_;
 
     std::vector<dartt_mem_t> subscribed_regions_;
 

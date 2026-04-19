@@ -167,9 +167,23 @@ void DarttLink::read_loop()
         if (n <= 0)
         {
             // Kernel buffer drained — bus is idle, release so TX can send
-            if (!is_full_duplex && bus_lock.owns_lock())
+            if (bus_lock.owns_lock())
 			{
 				bus_lock.unlock();
+			}
+
+			std::chrono::steady_clock::time_point cur_time = std::chrono::steady_clock::now();
+            bool timed_out = awaiting_reply_ &&
+                (cur_time - last_request_time_) >
+                std::chrono::milliseconds(read_request_timeout_ms);
+			if(timed_out)
+			{
+				std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(cur_time.time_since_epoch());
+				printf("Timeout %lld\n", (long long)ms.count() );
+			}
+            if (!awaiting_reply_ || timed_out)
+			{
+				dispatch_read_requests(bus_lock);
 			}
         }
 
@@ -177,11 +191,8 @@ void DarttLink::read_loop()
         {
             uint8_t b = chunk[i];
 
-            // First byte of activity — claim the bus (half-duplex only)
-            if (!is_full_duplex && !bus_lock.owns_lock())
-            {
+            if (!bus_lock.owns_lock())
 				bus_lock.lock();
-			}
 
             int ret = cobs_stream(b, &cobs_enc_, &cobs_dec_);
             if (ret == COBS_SUCCESS)
@@ -506,10 +517,37 @@ void DarttLink::process_frame()
         dartt_parse_read_reply(&pld, &synthetic_req, &periph_base);
     }
 
+    awaiting_reply_ = false;
+
     if (on_read_reply_cb_ != NULL)
 	{
 		on_read_reply_cb_(&periph_base, on_read_reply_ctx_);
 	}
+}
+
+void DarttLink::dispatch_read_requests(std::unique_lock<std::mutex>& bus_lock)
+{
+
+    {
+        std::lock_guard<std::mutex> q_lock(tx_queue_mutex_);
+        if (!tx_queue_.empty())
+            return;
+    }
+
+    std::lock_guard<std::mutex> rr_lock(read_request_mutex_);
+    if (read_request_list_.empty())
+        return;
+
+    const std::vector<uint8_t>& frame =
+        read_request_list_[read_request_index_ % read_request_list_.size()];
+    read_request_index_++;
+
+	bus_lock.lock();   // re-acquire — held until reply arrives, blocking write thread
+	send_raw(frame.data(), frame.size());
+	// intentionally do NOT unlock — bus stays reserved for the incoming reply
+
+    awaiting_reply_    = true;
+    last_request_time_ = std::chrono::steady_clock::now();
 }
 
 // ---------------------------------------------------------------------------
