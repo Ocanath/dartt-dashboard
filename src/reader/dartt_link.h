@@ -31,6 +31,9 @@ public:
 		COMM_TCP = 2
 	};
 
+
+
+
 	DarttLink(dartt_mem_t & ctl, dartt_mem_t & periph);
 	~DarttLink();
 
@@ -39,9 +42,10 @@ public:
     void start();   // spawn read + write threads
     void stop();    // signal both + join
 
-    // Push a complete pre-encoded COBS frame onto the TX queue.
-    // DarttLink treats it as opaque bytes — caller handles dartt framing.
-	void enqueue_frame(dartt_buffer_t & frame);
+
+	//function to dispatch write frames into the write queue based on a slice. Emulates write_multi dispatcher
+	int enqueue_writes(dartt_mem_t & ctl_slice);
+	void enqueue_write_frame(std::vector<uint8_t> & frame);
 
     // Subscribe a memory region for automatic read polling by the write thread.
     // Coalescing is the caller's responsibility — DarttLink has no field knowledge.
@@ -87,7 +91,14 @@ public:
 
 private:
 
-	struct read_request_backing_store_t
+
+    void read_loop();
+    void write_loop();
+    void process_frame();
+    void send_raw(const uint8_t* data, size_t len);
+    int  read_bytes(uint8_t* buf, int max);
+
+	struct read_request
 	{
 		unsigned char mem[
 			NUM_BYTES_ADDRESS +
@@ -100,15 +111,11 @@ private:
 		size_t len;
 	};
 
-
-    void read_loop();
-    void write_loop();
-    void process_frame();
-    void send_raw(const uint8_t* data, size_t len);
-    int  read_bytes(uint8_t* buf, int max);
+	//Helper to create a read request frame
+	int create_read_request_frame(dartt_mem_t & ctl, read_request & frame);
+	int create_write_frame(dartt_mem_t & ctl, std::vector<uint8_t> & frame);
 
 	void dispatch_read_requests();	//go thru the subscribed regions, create read requests, to fill the queue of outgoing. Called every time the read request queue is drained.
-	int create_read_request_frame(dartt_mem_t & ctl, read_request_backing_store_t & frame);
 
 	size_t target_serbuf_rx_size = 32;	//TODO: make a setter/getter for this? or set on init
 

@@ -39,13 +39,87 @@ void DarttLink::stop()
     close_bin_log();
 }
 
-void DarttLink::enqueue_frame(dartt_buffer_t & frame)
+void DarttLink::enqueue_write_frame(std::vector<uint8_t> & frame)
 {
+	std::lock_guard<std::mutex> lock(tx_queue_mutex_);
+	tx_queue_.push(std::move(frame));	//move is more efficient than pushing frame directly-transfers ownership of the heap memory to the tx_queue_
+}
+
+/*
+This is dartt_write_multi except that it enqueues stuffed frames
+*/
+int DarttLink::enqueue_writes(dartt_mem_t & ctl_slice)
+{
+	size_t nbytes_writemsg_overhead = 0;
+    if(msg_type == TYPE_SERIAL_MESSAGE)
     {
-        std::lock_guard<std::mutex> lock(tx_queue_mutex_);
-        tx_queue_.push(std::vector<uint8_t>(frame.buf, frame.buf + frame.len));
+		nbytes_writemsg_overhead = (NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);	//serial message writes have the maximum overhead, 5 bytes
     }
+    else if(msg_type == TYPE_ADDR_MESSAGE)
+    {
+		nbytes_writemsg_overhead = (NUM_BYTES_INDEX + NUM_BYTES_CHECKSUM);	//if inherently addressed, 4 bytes
+    }
+    else if(msg_type == TYPE_ADDR_CRC_MESSAGE)
+    {
+		nbytes_writemsg_overhead = NUM_BYTES_INDEX;	//if inherently addressed and error checked, only two bytes
+    }
+    else
+    {
+		return DARTT_ERROR_INVALID_ARGUMENT;
+    }
+
+	//add cobs overhead. This is an insertion not present in write_multi
+	nbytes_writemsg_overhead += NUM_BYTES_COBS_OVERHEAD;
+
+	if(target_serbuf_rx_size < nbytes_writemsg_overhead + sizeof(int32_t)) 	//for completeness, due to DARTT indexing every 4 bytes, you must at minimum be able to write out one full 4 byte word for complete write access
+	{
+		return DARTT_ERROR_MEMORY_OVERRUN;
+	}
+
+
+	size_t wsize = target_serbuf_rx_size - nbytes_writemsg_overhead;
+	wsize -= wsize % sizeof(int32_t);	//must make sure every chunkified write is 32bit aligned due to dartt indexing
+
+	int num_undersized_writes = (int)(ctl_slice.size / wsize);
+	int i = 0;
+	for(i = 0; i < num_undersized_writes; i++)
+	{
+		dartt_mem_t ctl_chunk =
+        {
+            .buf = ctl_slice.buf + wsize * i,
+            .size = wsize,
+        };
+		// int rc = dartt_ctl_write(&ctl_chunk, psync);
+		std::vector<uint8_t> frame;
+		int rc = create_write_frame(ctl_chunk, frame);
+		if(rc != DARTT_PROTOCOL_SUCCESS)
+		{
+			return rc;
+		}
+		enqueue_write_frame(frame);
+	}
+
+
+	size_t last_write_pld_size = ctl_slice.size % wsize;
+	if(last_write_pld_size != 0)			//last write
+	{
+		dartt_mem_t ctl_last_chunk =
+		{
+			.buf = ctl_slice.buf + wsize * i,
+			.size = last_write_pld_size,
+		};
+		std::vector<uint8_t> frame;
+		int rc = create_write_frame(ctl_last_chunk, frame);
+		if(rc != DARTT_PROTOCOL_SUCCESS)
+		{
+			return rc;
+		}
+		enqueue_write_frame(frame);
+	}
+
+
     tx_cv_.notify_one();
+	return DARTT_PROTOCOL_SUCCESS;
 }
 
 void DarttLink::subscribe_region(dartt_mem_t region)
@@ -126,8 +200,77 @@ void DarttLink::read_loop()
     }
 }
 
+/** @brief Returns a cobs encoded frame
+ *
+ */
+int DarttLink::create_write_frame(dartt_mem_t & ctl, std::vector<uint8_t> & frame)
+{
+	assert(ctl.buf != NULL && ctl_base.buf != NULL);
 
-int DarttLink::create_read_request_frame(dartt_mem_t & ctl, read_request_backing_store_t & frame)
+
+    // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
+    if (ctl.buf < ctl_base.buf || ctl.buf >= (ctl_base.buf + ctl_base.size)) {
+        return DARTT_ERROR_INVALID_ARGUMENT;
+    }
+    if (ctl.buf + ctl.size > ctl_base.buf + ctl_base.size)
+	{
+        return DARTT_ERROR_MEMORY_OVERRUN;
+    }
+
+    int field_index = index_of_field( (void*)(&ctl.buf[0]), (void*)(&ctl_base.buf[0]), ctl_base.size );
+    if(field_index < 0)
+    {
+        return field_index; //negative values are error codes, return if you get negative value
+    }
+
+	size_t framesize = 0;
+	framesize+=NUM_BYTES_ADDRESS;
+	framesize+=NUM_BYTES_INDEX;
+	framesize+=ctl.size;
+	framesize+=NUM_BYTES_CHECKSUM;
+	framesize+=NUM_BYTES_COBS_OVERHEAD;
+	frame.resize(framesize);
+
+    unsigned char misc_address = dartt_get_complementary_address(address);
+    //write then read the word in question
+    misc_write_message_t write_msg =
+    {
+            .address = misc_address,
+            .index = (uint16_t)(field_index + base_offset),
+            .payload = {
+                    .buf = ctl.buf,
+                    .size = ctl.size,
+                    .len = ctl.size
+            }
+    };
+
+	dartt_buffer_t tx_buf = {
+		.buf = frame.data(),
+		.size = frame.size(),
+		.len = 0
+	};
+    int rc = dartt_create_write_frame(&write_msg, msg_type, &tx_buf);
+    if(rc != DARTT_PROTOCOL_SUCCESS)
+    {
+        return rc;	//return empty vector if fail
+    }
+	cobs_buf_t cobs_tx = {
+		.buf = tx_buf.buf,
+		.size = tx_buf.size,
+		.length = tx_buf.len,
+		.encoded_state = COBS_DECODED
+	};
+	rc = cobs_encode_single_buffer(&cobs_tx);
+	if(rc != COBS_SUCCESS)
+	{
+		return rc;
+	}
+	//resize again to cobs_tx.length???
+	frame.resize(cobs_tx.length);
+	return rc;
+}
+
+int DarttLink::create_read_request_frame(dartt_mem_t & ctl, read_request & frame)
 {
 	assert(ctl_base.size == periph_base.size);
     assert(ctl.buf != NULL && ctl_base.buf != NULL);
