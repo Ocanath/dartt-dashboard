@@ -43,15 +43,18 @@
 #include "buffer_sync.h"
 #include "plotting.h"
 #include "elf_parser.h"
+#include "audio/audio_engine.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <string>
 
 struct ReadCallbackCtx {
-    DarttConfig* config;
-    Plotter*     plot;
-    DarttLink*   dl;
+    DarttConfig*  config;
+    Plotter*      plot;
+    DarttLink*    dl;
+    AudioEngine*  audio;
 };
 
 static void on_read_reply(const dartt_mem_t* periph, void* ctx)
@@ -70,15 +73,44 @@ static void on_read_reply(const dartt_mem_t* periph, void* ctx)
         calculate_display_values(c->config->leaf_list);
     }
 
+    // Update sys_sec from read thread — accurate to data arrival, not frame time
+    {
+        static std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+        std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+        c->plot->sys_sec = std::chrono::duration<float>(now - t0).count();
+    }
+
+    // Audio push — independent of plot_mutex, always fires even when render is busy
+    if (c->audio != nullptr)
+    {
+        float sum = 0.f;
+        bool  any = false;
+        for (int i = 0; i < (int)c->plot->lines.size(); i++)
+        {
+            Line& line = c->plot->lines[i];
+            if (line.audio_subscribe && line.ysource != nullptr)
+            {
+                sum += *line.ysource;
+                any  = true;
+            }
+        }
+        if (any)
+        {
+            int64_t now_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+            c->audio->push_sample(now_us, sum);
+        }
+    }
+
     {
 		/*
 			Prevent read loop starvation.
 			This contends with the slow render() call for access of the shared plot ring buffer.
-			
+
 			In order to prevent the render from starving the read loop, we will reduce the amount of data which is loaded into the plot buffer and introduce some
 			jitter in the rendered visual by missing some enqueue calls with a try-lock scheme, rather than spinning until access is available.
 		*/
-		if(!c->plot->plot_mutex.try_lock()) 	
+		if(!c->plot->plot_mutex.try_lock())
 		{
 			return;
 		}
@@ -235,7 +267,11 @@ int main(int argc, char* argv[])
 	// Serial connection
 	DarttLink dl(config.ctl_buf, config.periph_buf);
 
-	static ReadCallbackCtx cb_ctx = { &config, &plot, &dl };
+	AudioEngine audio_engine;
+	if (!audio_engine.init(44100))
+		printf("Audio init failed — continuing without audio\n");
+
+	static ReadCallbackCtx cb_ctx = { &config, &plot, &dl, &audio_engine };
 	dl.set_read_reply_callback(on_read_reply, &cb_ctx);
 
 	// Main loop
@@ -413,12 +449,11 @@ int main(int argc, char* argv[])
 
 		// Render UI
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);
-		plot.sys_sec = (float)(((double)SDL_GetTicks64())/1000.);
 		{
 			std::lock_guard<std::mutex> lock(dl.periph_buf_mutex);
 			bool value_edited = render_live_expressions(config, plot, config_json_path, dl);
 			(void)value_edited;
-			render_plotting_menu(plot, config.root, config.subscribed_list);
+			render_plotting_menu(plot, config.root, config.subscribed_list, audio_engine);
 		}
 		
 
@@ -439,6 +474,7 @@ int main(int argc, char* argv[])
 	// save_dartt_config("config.json", config);
 
 	dl.stop();
+	audio_engine.shutdown();
 
 	// Cleanup
 	shutdown_imgui();

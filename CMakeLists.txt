@@ -42,8 +42,12 @@ add_subdirectory(external/dartt-protocol)
 # nlohmann/json (provides: nlohmann_json::nlohmann_json)
 add_subdirectory(external/json)
 
-#libsoundio
+#libsoundio — ALSA only; disable optional backends to keep transitive deps simple
+set(ENABLE_PULSEAUDIO OFF CACHE BOOL "" FORCE)
+set(ENABLE_JACK       OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/libsoundio)
+find_package(ALSA)
+find_package(Threads REQUIRED)
 
 # libdwarf (provides: dwarf)
 # Disable components we don't need
@@ -74,6 +78,7 @@ add_executable(${PROJECT_NAME}
 	src/buffer_sync.cpp
 	src/plotting.cpp
 	src/colors.cpp
+	src/audio/audio_engine.cpp
 )
 
 # Debug symbols
@@ -115,10 +120,12 @@ else()
 
 endif()
 
-# Include directories for ELF parsing
+# Include directories for ELF parsing and audio
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/external/ELFIO
     ${CMAKE_CURRENT_SOURCE_DIR}/external/libdwarf/src/lib/libdwarf
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/libsoundio
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -131,6 +138,9 @@ target_link_libraries(${PROJECT_NAME}
     dartt_checksum
     nlohmann_json::nlohmann_json
     dwarf
+    libsoundio_static
+    ${ALSA_LIBRARIES}
+    Threads::Threads
 )
 
 # tinycsocket socket libraries (vendored, header-only with TINYCSOCKET_IMPLEMENTATION)

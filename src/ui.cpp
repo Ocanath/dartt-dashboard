@@ -636,7 +636,9 @@ static DarttField* render_field_selector_tree(DarttField* root)
 	return selected;
 }
 
-bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<DarttField*> &subscribed_list)
+bool render_plotting_menu(Plotter& plot, DarttField& root,
+                          const std::vector<DarttField*>& subscribed_list,
+                          AudioEngine& audio)
 {
 	ImGui::Begin("Plot Settings");
 
@@ -663,7 +665,21 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		}
 	}
 	ImGui::Separator();
-	
+
+	if (audio.is_recording())
+	{
+		if (ImGui::Button("Stop Recording"))
+			audio.stop_recording();
+		ImGui::SameLine();
+		ImGui::TextUnformatted("Recording...");
+	}
+	else
+	{
+		if (ImGui::Button("Record WAV"))
+			audio.start_recording("capture.wav");
+	}
+	ImGui::Separator();
+
 	int line_to_remove = -1;
 	for (size_t line_idx = 0; line_idx < plot.lines.size(); line_idx++)
 	{
@@ -793,6 +809,8 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		ImGui::Text("Buffer Size");
 		ImGui::SameLine();
 		ImGui::InputScalar("##buffsersize", ImGuiDataType_U32, &line.enqueue_cap, 0, 0, "%d");
+
+		ImGui::Checkbox("Audio Out", &line.audio_subscribe);
 
 		// Color picker
 		ImGui::Text("Color:");
