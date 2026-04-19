@@ -196,20 +196,53 @@ derive `data_len = payload.msg.len - NUM_BYTES_READ_REPLY_OVERHEAD_PLD`.
 
 ## Component 2: TX Queue Dispatch (replaces dartt_read_multi + dartt_write_multi call sites)
 
-Both write requests and read requests are dispatched from the rendering loop by
-constructing a complete COBS-encoded dartt frame and pushing it into
-`DarttLink::enqueue_frame()`. DarttLink does not know or care what kind of frame it
-is — it just sends bytes when the write thread can acquire the bus.
+`DarttLink` owns frame construction and dispatch for both read requests and writes,
+mirroring `dartt_sync`. This decouples the polling cadence from the render loop
+entirely — read request dispatch runs inside the write thread at full link speed,
+not at 60 Hz.
 
-This means `dartt_read_multi` and `dartt_write_multi` are **removed** from the
-rendering loop entirely. Their frame-construction logic (chunking, index calculation,
-COBS encoding) is reused but the TX callback is replaced by `enqueue_frame()`.
+### Read Request Dispatch (internal to DarttLink)
+
+DarttLink maintains a **subscribed region list** — a set of `dartt_mem_t` slices
+representing the memory regions to poll. The render loop registers/removes regions
+when the user subscribes or unsubscribes fields (coalescing happens at the caller
+side before registering, so DarttLink has no knowledge of `DarttField`).
+
+The write thread calls `dispatch_read_requests()` after draining the explicit TX
+queue, so writes always take priority. In streaming mode the dispatch is skipped —
+the peripheral drives its own transmit cadence.
+
+```cpp
+// Public API
+void subscribe_region(dartt_mem_t region);
+void clear_subscriptions();
+
+// Private — called from write thread after TX queue drain
+void dispatch_read_requests();
+```
+
+`dispatch_read_requests` mirrors the TX side of `dartt_read_multi`: for each
+subscribed region, chunk it, build read request frames via `dartt_create_read_frame`
++ `cobs_encode_single_buffer`, push each encoded frame to `tx_queue_`.
+
+Chunk size limit (same calc as dartt_sync):
+```
+max_chunk_bytes = DARTT_LINK_BUF_SIZE - NUM_BYTES_NON_PAYLOAD
+                                      - NUM_BYTES_READ_REPLY_OVERHEAD_PLD
+                                      - NUM_BYTES_COBS_OVERHEAD
+```
+
+### Write Frame Dispatch (caller side)
+
+Dirty write frames are still pushed by the render loop via `enqueue_frame()`.
+Frame construction (chunking, index calculation, COBS encoding) mirrors
+`dartt_write_multi` but the result is pushed to the TX queue instead of blocking.
+This helper can live in `buffer_sync.cpp`.
 
 ### What Changes in `main.cpp`
 
 Before:
 ```cpp
-// for each region:
 dartt_write_multi(&slice, &ds);          // blocking send
 dartt_read_multi(&slice, &ds);           // blocking send + blocking receive
 sync_periph_buf_to_fields(config, region);
@@ -217,32 +250,17 @@ sync_periph_buf_to_fields(config, region);
 
 After:
 ```cpp
-// for each dirty region:
-enqueue_write_frames(config, region, dartt_link);   // builds + enqueues COBS frames
+// on field subscribe/unsubscribe:
+dartt_link.subscribe_region(region);     // DarttLink polls automatically
 
-// for each subscribed region (non-streaming mode):
-enqueue_read_request_frames(config, region, dartt_link);  // builds + enqueues COBS frames
+// on dirty write:
+enqueue_write_frames(config, region, dartt_link);   // builds + enqueues
 
-// DarttLink write thread handles TX; DarttLink read thread handles replies.
-// Main thread checks data_ready_flag and calls sync_periph_buf_to_fields when set.
+// read replies handled by DarttLink read thread → read_reply_cb → plotter
 ```
 
-In streaming mode, `enqueue_read_request_frames` is not called — the peripheral
-dispatches its own read-reply frames and the read thread consumes them.
-
-### Frame Construction Helpers (sketch)
-
-```cpp
-// Build and enqueue COBS-encoded write frames for a dirty memory region.
-// Mirrors dartt_write_multi chunking but pushes to TX queue instead of blocking TX.
-void enqueue_write_frames(DarttConfig& cfg, MemoryRegion& region, DarttLink& link);
-
-// Build and enqueue COBS-encoded read request frames for a subscribed region.
-// Mirrors dartt_read_multi chunking but pushes to TX queue instead of blocking TX.
-void enqueue_read_request_frames(DarttConfig& cfg, MemoryRegion& region, DarttLink& link);
-```
-
-These can live in `buffer_sync.cpp` alongside the existing coalescing helpers.
+In streaming mode, `subscribe_region` is not called — the peripheral dispatches
+its own read-reply frames and the read thread consumes them via the same path.
 
 ---
 
@@ -412,9 +430,11 @@ reverts to request-driven polling via the dispatcher.
    write to `periph_buf` under `periph_buf_mutex`
 3. **Plotter integration** — hold `plot_mutex`, call `enqueue_data` from read thread;
    add lock to `Plotter::render()`
-4. **TX queue dispatch helpers** — `enqueue_write_frames` and
-   `enqueue_read_request_frames` in `buffer_sync.cpp`; remove `dartt_read_multi` /
-   `dartt_write_multi` call sites from `main.cpp`
+4. **Read request dispatch** — `subscribe_region` / `clear_subscriptions` public API;
+   `dispatch_read_requests()` private method mirroring `dartt_read_multi` TX side;
+   write thread calls it after queue drain; `enqueue_write_frames` helper in
+   `buffer_sync.cpp` for dirty writes; remove `dartt_read_multi` / `dartt_write_multi`
+   call sites from `main.cpp`
 5. **Streaming mode** — add toggle; skip read-request dispatch when enabled
 6. **Binary logger** — append raw COBS frames to `.bin` file from read thread
 7. **WAV writer** — `WavWriter` helper class, integrate into `Line::enqueue_data`

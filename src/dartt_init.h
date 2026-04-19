@@ -23,14 +23,8 @@ struct TcpState {
 	bool connected;
 };
 
-enum CommMode {
-	COMM_SERIAL = 0,
-	COMM_UDP = 1,
-	COMM_TCP = 2
-};
 
-extern Serial serial;
-extern CommMode comm_mode;
+
 extern UdpState udp_state;
 extern TcpState tcp_state;
 extern unsigned char tx_mem[SERIAL_BUFFER_SIZE];

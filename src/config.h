@@ -6,6 +6,7 @@
 #include <cstdint>
 #include "dartt_sync.h"
 #include "dartt.h"
+#include "dartt_link.h"
 #include "plotting.h"
 #include <nlohmann/json.hpp>
 #include "serial.h"
@@ -151,8 +152,7 @@ struct DarttConfig
 // Parse config from JSON file
 // If plot is provided, also loads plotting config
 // Returns true on success, false on error (error message printed to stderr)
-bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot, Serial & serial, dartt_sync_t& ds);
-
+bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot, Serial & serial, DarttLink & ds);
 
 // Parse plotting config from json, if present.
 void load_plotting_config(const nlohmann::json& j, Plotter& plot, const std::vector<DarttField*>& leaf_list);
@@ -169,7 +169,7 @@ class Plotter;
 // Save config to JSON file (preserves UI settings)
 // If plot is provided, also saves plotting config
 // Returns true on success, false on error (error message printed to stderr)
-bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot, Serial & serial, dartt_sync_t& ds);
+bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot, DarttLink & dl);
 
 // Helper: get FieldType from type string
 FieldType parse_field_type(const std::string& type_str);

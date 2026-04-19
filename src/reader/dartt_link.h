@@ -16,17 +16,28 @@
 
 #define DARTT_LINK_BUF_SIZE 512
 
-class DarttLink {
+class DarttLink 
+{
 public:
-    void init(dartt_sync_t* sync, CommMode mode, Serial* serial,
-              UdpState* udp, TcpState* tcp);
+
+	enum 
+	{
+		COMM_SERIAL = 0,
+		COMM_UDP = 1,
+		COMM_TCP = 2
+	};
+
+	DarttLink(dartt_mem_t & ctl, dartt_mem_t & periph);
+	~DarttLink();
+
+	void init_serial(int baudrate);
 
     void start();   // spawn read + write threads
     void stop();    // signal both + join
 
     // Push a complete pre-encoded COBS frame onto the TX queue.
     // DarttLink treats it as opaque bytes — caller handles dartt framing.
-    void enqueue_frame(std::vector<uint8_t> frame);
+	void enqueue_frame(dartt_buffer_t & frame);
 
     // Half-duplex (default): bus_mutex_ arbitrates read vs write threads.
     // Full-duplex: both threads skip bus_mutex_ entirely.
@@ -41,16 +52,38 @@ public:
     void open_bin_log(const std::string& path);
     void close_bin_log();
 
+    // Called from the read thread once per decoded read-reply, after periph_base_
+    // has been updated. Fired under periph_buf_mutex — do not re-acquire it.
+    // Sentinel: nullptr (default) — no callback.
+    typedef void (*read_reply_cb_t)(const dartt_mem_t* periph, void* user_ctx);
+    void set_read_reply_callback(read_reply_cb_t cb, void* ctx);
+
     // Callers must hold this when reading periph_buf or DarttField values
     // written by the read thread.
     std::mutex periph_buf_mutex;
+
+
+	//dartt sync things
+	unsigned char address;	 // Target peripheral address
+	dartt_mem_t ctl_base;			// Bounding region of controller control structure
+	dartt_mem_t periph_base;		 // Bounding region of shadow copy structure
+	uint16_t base_offset;			//offset into the true peripheral blob. Applied when the dartt_sync_t is indexing into a larger blob, with unknown surrounding structure. Should be set to 0 in most situations
+	serial_message_type_t msg_type;
+
+	//
+	int      comm_mode;
+
+	//hardware interfaces
+    Serial       serial;
+    UdpState     udp;
+    TcpState     tcp;
 
 private:
     void read_loop();
     void write_loop();
     void process_frame();
     void send_raw(const uint8_t* data, size_t len);
-    int  read_byte(uint8_t& out);
+    int  read_bytes(uint8_t* buf, int max);
 
     std::thread        read_thread_;
     std::thread        write_thread_;
@@ -73,15 +106,11 @@ private:
     cobs_buf_t cobs_enc_{};
     cobs_buf_t cobs_dec_{};
 
-    // Raw wire bytes staged per-frame for the bin logger
-    uint8_t    raw_frame_[DARTT_LINK_BUF_SIZE + 1];
-    size_t     raw_frame_len_ = 0;
 
-    dartt_sync_t* sync_      = nullptr;
-    CommMode      comm_mode_ = COMM_SERIAL;
-    Serial*       serial_    = nullptr;
-    UdpState*     udp_       = nullptr;
-    TcpState*     tcp_       = nullptr;
+
+
+    read_reply_cb_t on_read_reply_cb_  = nullptr;
+    void*           on_read_reply_ctx_ = nullptr;
 
     std::FILE*    bin_log_file_ = nullptr;
 };

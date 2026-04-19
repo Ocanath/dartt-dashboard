@@ -2,17 +2,28 @@
 
 #include <cstring>
 
-void DarttLink::init(dartt_sync_t* sync, CommMode mode, Serial* serial,
-                     UdpState* udp, TcpState* tcp)
-{
-    sync_      = sync;
-    comm_mode_ = mode;
-    serial_    = serial;
-    udp_       = udp;
-    tcp_       = tcp;
+#define NUM_BYTES_COBS_OVERHEAD	2	//we have to tell dartt our serial buffers are smaller than they are, so the COBS layer has room to operate. This allows for functional multiple message handling with write_multi and read_multi for large configs
 
-    cobs_enc_ = { enc_mem_, sizeof(enc_mem_), 0, COBS_ENCODED };
+
+
+DarttLink::DarttLink(dartt_mem_t & ctl, dartt_mem_t & periph)
+{
+	ctl_base = ctl;	//shallow copies, alias these
+	periph_base = periph;
+	cobs_enc_ = { enc_mem_, sizeof(enc_mem_), 0, COBS_ENCODED };
     cobs_dec_ = { dec_mem_, sizeof(dec_mem_), 0, COBS_DECODED };
+	msg_type = TYPE_SERIAL_MESSAGE;
+}
+
+DarttLink::~DarttLink()
+{
+
+}
+
+void DarttLink::init_serial(int baudrate)
+{
+    comm_mode = COMM_SERIAL;
+	serial.autoconnect(baudrate);
 }
 
 void DarttLink::start()
@@ -31,13 +42,19 @@ void DarttLink::stop()
     close_bin_log();
 }
 
-void DarttLink::enqueue_frame(std::vector<uint8_t> frame)
+void DarttLink::enqueue_frame(dartt_buffer_t & frame)
 {
     {
         std::lock_guard<std::mutex> lock(tx_queue_mutex_);
-        tx_queue_.push(std::move(frame));
+        // tx_queue_.push(std::move(frame));	//TODO: implement this
     }
     tx_cv_.notify_one();
+}
+
+void DarttLink::set_read_reply_callback(read_reply_cb_t cb, void* ctx)
+{
+    on_read_reply_cb_  = cb;
+    on_read_reply_ctx_ = ctx;
 }
 
 void DarttLink::open_bin_log(const std::string& path)
@@ -61,37 +78,42 @@ void DarttLink::close_bin_log()
 void DarttLink::read_loop()
 {
     std::unique_lock<std::mutex> bus_lock(bus_mutex_, std::defer_lock);
+    uint8_t chunk[64];
 
     while (running_)
     {
-        uint8_t b;
-        if (read_byte(b) == 0)
-            continue;
-
-        // First byte of a new frame — claim the bus (half-duplex only)
-        if (!is_full_duplex && !bus_lock.owns_lock())
-            bus_lock.lock();
-
-        if (raw_frame_len_ < sizeof(raw_frame_))
-            raw_frame_[raw_frame_len_++] = b;
-
-        int ret = cobs_stream(b, &cobs_enc_, &cobs_dec_);
-        if (ret == COBS_SUCCESS)
+        int n = read_bytes(chunk, sizeof(chunk));
+        if (n <= 0)
         {
-            process_frame();
-            cobs_enc_.length = 0;
-            raw_frame_len_   = 0;
+            // Kernel buffer drained — bus is idle, release so TX can send
             if (!is_full_duplex && bus_lock.owns_lock())
-                bus_lock.unlock();   // release between frames — write thread can win here
+			{
+				bus_lock.unlock();
+			}
         }
-        else if (ret == COBS_ERROR_SERIAL_OVERRUN)
+
+        for (int i = 0; i < n; i++)
         {
-            cobs_enc_.length = 0;
-            raw_frame_len_   = 0;
-            if (!is_full_duplex && bus_lock.owns_lock())
-                bus_lock.unlock();
+            uint8_t b = chunk[i];
+
+            // First byte of activity — claim the bus (half-duplex only)
+            if (!is_full_duplex && !bus_lock.owns_lock())
+            {
+				bus_lock.lock();
+			}
+
+            int ret = cobs_stream(b, &cobs_enc_, &cobs_dec_);
+            if (ret == COBS_SUCCESS)
+            {
+                process_frame();
+                cobs_enc_.length = 0;
+            }
+            else if (ret == COBS_ERROR_SERIAL_OVERRUN)
+            {
+                cobs_enc_.length = 0;
+            }
+            // Hold the lock for the rest of the chunk regardless — more frames may follow
         }
-        // COBS_STREAMING_IN_PROGRESS: mid-frame, hold the lock
     }
 }
 
@@ -144,19 +166,24 @@ void DarttLink::process_frame()
     dartt_buffer_t pld_msg_buf = { pld_buf, sizeof(pld_buf), 0 };
     pld.msg = pld_msg_buf;
 
-    if (dartt_frame_to_payload(&frame, sync_->msg_type, PAYLOAD_COPY, &pld) != DARTT_PROTOCOL_SUCCESS)
-        return;
+    if (dartt_frame_to_payload(&frame, msg_type, PAYLOAD_COPY, &pld) != DARTT_PROTOCOL_SUCCESS)
+	{
+		return;
+	}
 
     if (pld.msg.len < NUM_BYTES_READ_REPLY_OVERHEAD_PLD)
         return;
 
     uint16_t index_field = (uint16_t)pld.msg.buf[0] | ((uint16_t)pld.msg.buf[1] << 8);
     if (!(index_field & READ_WRITE_BITMASK))
-        return;
+	{
+		return;
+	}
 
-    // Bin log: raw staged bytes already include the trailing 0x00 delimiter
-    if (bin_logging_enabled && bin_log_file_ && raw_frame_len_ > 0)
-        std::fwrite(raw_frame_, 1, raw_frame_len_, bin_log_file_);
+    if (bin_logging_enabled && bin_log_file_ && cobs_enc_.length > 0)
+    {
+		std::fwrite(cobs_enc_.buf, 1, cobs_enc_.length, bin_log_file_);
+	}
 
     // Synthesise original_msg from reply length to satisfy dartt_parse_read_reply's
     // length check without needing the original outgoing request on hand.
@@ -167,10 +194,13 @@ void DarttLink::process_frame()
 
     {
         std::lock_guard<std::mutex> lock(periph_buf_mutex);
-        dartt_parse_read_reply(&pld, &synthetic_req, &sync_->periph_base);
+        dartt_parse_read_reply(&pld, &synthetic_req, &periph_base);
     }
 
-    // TODO (step 3): update Plotter here under plot_mutex
+    if (on_read_reply_cb_ != NULL)
+	{
+		on_read_reply_cb_(&periph_base, on_read_reply_ctx_);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -179,10 +209,10 @@ void DarttLink::process_frame()
 
 void DarttLink::send_raw(const uint8_t* data, size_t len)
 {
-    switch (comm_mode_)
+    switch (comm_mode)
     {
         case COMM_SERIAL:
-            serial_->write(const_cast<uint8_t*>(data), (int)len);
+            serial.write(const_cast<uint8_t*>(data), (int)len);
             break;
         case COMM_UDP:
             // TODO: tcs_send_to(udp_->socket, data, len, ...)
@@ -193,17 +223,17 @@ void DarttLink::send_raw(const uint8_t* data, size_t len)
     }
 }
 
-int DarttLink::read_byte(uint8_t& out)
+int DarttLink::read_bytes(uint8_t* buf, int max)
 {
-    switch (comm_mode_)
+    switch (comm_mode)
     {
         case COMM_SERIAL:
-            return serial_->read(&out, 1);
+            return serial.read(buf, max);
         case COMM_UDP:
-            // TODO: tcs_receive_from(udp_->socket, &out, 1, ...)
+            // TODO: tcs_receive_from(udp_.socket, buf, max, ...)
             return 0;
         case COMM_TCP:
-            // TODO: tcs_receive(tcp_->socket, &out, 1, ...)
+            // TODO: tcs_receive(tcp_.socket, buf, max, ...)
             return 0;
     }
     return -1;

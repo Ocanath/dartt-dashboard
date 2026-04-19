@@ -7,7 +7,7 @@
 #include <vector>
 #include <string>
 #include "colors.h"
-#include "dartt_init.h"
+#include "dartt_link.h"
 
 
 bool init_imgui(SDL_Window* window, SDL_GLContext gl_context) 
@@ -820,48 +820,48 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 	return true;
 }
 
-bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path, Serial & ser, dartt_sync_t & ds)
+bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::string& config_json_path, DarttLink & dl)
 {
     bool any_edited = false;
 
     ImGui::Begin("Live Expressions");
 
 	// Transport mode toggle
-	int mode = (int)comm_mode;
-	ImGui::RadioButton("Serial", &mode, COMM_SERIAL);
+	int mode = (int)dl.comm_mode;
+	ImGui::RadioButton("Serial", &mode, DarttLink::COMM_SERIAL);
 	ImGui::SameLine();
-	ImGui::RadioButton("UDP", &mode, COMM_UDP);
+	ImGui::RadioButton("UDP", &mode, DarttLink::COMM_UDP);
 	ImGui::SameLine();
-	ImGui::RadioButton("TCP", &mode, COMM_TCP);
-	CommMode new_mode = (CommMode)mode;
-	if (new_mode != comm_mode)
+	ImGui::RadioButton("TCP", &mode, DarttLink::COMM_TCP);
+	int new_mode = mode;
+	if (new_mode != dl.comm_mode)
 	{
-		if (comm_mode == COMM_UDP) udp_disconnect(&udp_state);
-		if (comm_mode == COMM_TCP) tcp_disconnect(&tcp_state);
-		comm_mode = new_mode;
+		if (dl.comm_mode == DarttLink::COMM_UDP) udp_disconnect(&udp_state);
+		if (dl.comm_mode == DarttLink::COMM_TCP) tcp_disconnect(&tcp_state);
+		dl.comm_mode = new_mode;
 	}
 
 	ImGui::Text("Dartt Address: ");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(50);
-	ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &ds.address);
+	ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &dl.address);
 
-	switch (comm_mode)
+	switch (dl.comm_mode)
 	{
-		case COMM_SERIAL:
+		case DarttLink::COMM_SERIAL:
 		{
 			ImGui::SameLine();
 			ImGui::Text("Baudrate: ");
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(50);
-			uint32_t baudrate = ser.get_baud_rate();
+			uint32_t baudrate = dl.serial.get_baud_rate();
 			ImGui::InputScalar("##baudrate", ImGuiDataType_U32, &baudrate);
 			if(ImGui::IsItemDeactivatedAfterEdit())
 			{
 				printf("Disconnecting serial...\n");
-				ser.disconnect();
+				dl.serial.disconnect();
 				printf("done.\n Reconnecting with baudrate %d\n", baudrate);
-				if(ser.autoconnect(baudrate))
+				if(dl.serial.autoconnect(baudrate))
 				{
 					printf("Success. Serial connected\n");
 				}
@@ -872,7 +872,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 			}
 			break;
 		}
-		case COMM_UDP:
+		case DarttLink::COMM_UDP:
 		{
 			ImGui::SameLine();
 			ImGui::Text("IP: ");
@@ -897,7 +897,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 			}
 			break;
 		}
-		case COMM_TCP:
+		case DarttLink::COMM_TCP:
 		{
 			ImGui::SameLine();
 			ImGui::Text("IP: ");
@@ -927,7 +927,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 	ImGui::Text("Dartt blob offset: ");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(50);
-	ImGui::InputScalar("##dartt_base_offset", ImGuiDataType_U8, &ds.base_offset);
+	ImGui::InputScalar("##dartt_base_offset", ImGuiDataType_U8, &dl.base_offset);
 
     // Show config info
     ImGui::Text("Symbol: %s", config.symbol.c_str());
@@ -935,7 +935,7 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
     bool save_clicked = ImGui::Button("Save");
 	if(save_clicked)
 	{
-		save_dartt_config(config_json_path.c_str(), config, plot, ser, ds);
+		save_dartt_config(config_json_path.c_str(), config, plot, dl);
 	}
 
 	ImGui::SameLine();

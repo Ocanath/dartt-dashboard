@@ -34,10 +34,11 @@
 #include "dartt.h"
 #include "dartt_sync.h"
 #include "dartt_crc.h"
+#include "dartt_link.h"
+
 
 // App
 #include "config.h"
-#include "dartt_init.h"
 #include "ui.h"
 #include "buffer_sync.h"
 #include "plotting.h"
@@ -125,13 +126,7 @@ int main(int argc, char* argv[])
 	SDL_GetWindowSize(window, &width, &height);
 	plot.init(width, height);
 	
-	// Serial connection
-	bool rc = serial.autoconnect(230400);
-	if (rc != true) 
-	{
-		printf("Warning - no serial connection made\n");
-	}
-
+	
 	if (tcs_lib_init() != TCS_SUCCESS)
 	{
 		printf("Failed to initialize tinycsocket\n");
@@ -152,19 +147,8 @@ int main(int argc, char* argv[])
 		config.allocate_buffers();
 	}
 
-	// Setup dartt_sync
-	dartt_sync_t ds;
-	init_ds(&ds);
-	ds.address = 0x0; // TODO: make configurable
-
-	if (config.ctl_buf.buf && config.periph_buf.buf) 
-	{
-		//shallow copy the buffers
-		ds.ctl_base.buf = config.ctl_buf.buf;
-		ds.ctl_base.size = config.ctl_buf.size;
-		ds.periph_base.buf = config.periph_buf.buf;
-		ds.periph_base.size = config.periph_buf.size;
-	}
+	// Serial connection
+	DarttLink dl(config.ctl_buf, config.periph_buf);
 
 	// Main loop
 	bool running = true;
@@ -219,19 +203,19 @@ int main(int argc, char* argv[])
 				plot.lines[i].xsource = &plot.sys_sec;
 				plot.lines[i].ysource = nullptr;
 			}
-			ds.ctl_base.buf = nullptr;
-			ds.periph_base.buf = nullptr;
+			dl.ctl_base.buf = nullptr;
+			dl.periph_base.buf = nullptr;
 			config = DarttConfig();
 
-			if (load_dartt_config(dropped_file_path.c_str(), config, plot, serial, ds))
+			if (load_dartt_config(dropped_file_path.c_str(), config, plot, dl.serial, dl))
 			{
 				if (config.nbytes > 0)
 				{
 					config.allocate_buffers();
-					ds.ctl_base.buf = config.ctl_buf.buf;
-					ds.ctl_base.size = config.ctl_buf.size;
-					ds.periph_base.buf = config.periph_buf.buf;
-					ds.periph_base.size = config.periph_buf.size;
+					dl.ctl_base.buf = config.ctl_buf.buf;
+					dl.ctl_base.size = config.ctl_buf.size;
+					dl.periph_base.buf = config.periph_buf.buf;
+					dl.periph_base.size = config.periph_buf.size;
 				}
 				config_json_path = dropped_file_path;
 				printf("Loaded config from JSON: %s\n", dropped_file_path.c_str());
@@ -251,8 +235,8 @@ int main(int argc, char* argv[])
 				plot.lines[i].xsource = &plot.sys_sec;
 				plot.lines[i].ysource = nullptr;
 			}
-			ds.ctl_base.buf = nullptr;
-			ds.periph_base.buf = nullptr;
+			dl.ctl_base.buf = nullptr;
+			dl.periph_base.buf = nullptr;
 			config = DarttConfig();
 
 			elf_parse_error_t err = elf_parser_load_config(dropped_file_path.c_str(), var_name_buf, &config);
@@ -262,10 +246,10 @@ int main(int argc, char* argv[])
 				if (config.nbytes > 0)
 				{
 					config.allocate_buffers();
-					ds.ctl_base.buf = config.ctl_buf.buf;
-					ds.ctl_base.size = config.ctl_buf.size;
-					ds.periph_base.buf = config.periph_buf.buf;
-					ds.periph_base.size = config.periph_buf.size;
+					dl.ctl_base.buf = config.ctl_buf.buf;
+					dl.ctl_base.size = config.ctl_buf.size;
+					dl.periph_base.buf = config.periph_buf.buf;
+					dl.periph_base.size = config.periph_buf.size;
 				}
 				config_json_path = dropped_file_path.substr(0, dropped_file_path.size() - 4) + ".json";
 				elf_parser_ctx tmp_parser;
@@ -301,7 +285,8 @@ int main(int argc, char* argv[])
 					.size = region.length
 				};
 
-				int rc = dartt_write_multi(&slice, &ds);
+				// int rc = dartt_write_multi(&slice, &ds);
+				int rc = 0;	//TODO: replace this with an enqueue/write request function to dl. Should take priority over the subscriber read requests
 				if (rc == DARTT_PROTOCOL_SUCCESS) {
 					clear_dirty_flags(region);
 					printf("write ok: offset=%u len=%u\n", region.start_offset, region.length);
@@ -322,24 +307,25 @@ int main(int argc, char* argv[])
 					.buf = config.ctl_buf.buf + region.start_offset,
 					.size = region.length,
 				};
+				//TODO: load these into a mutex guarded queue of dartt_mem_t slices that the DarttLink uses to generate rolling read requests
 
-
-				int rc = dartt_read_multi(&slice, &ds);
-				if (rc == DARTT_PROTOCOL_SUCCESS) 
-				{
-					sync_periph_buf_to_fields(config, region);
-				} 
-				else 
-				{
-					printf("read error %d\n", rc);
-				}
+				// int rc = dartt_read_multi(&slice, &ds);
+				// int rc = 0;
+				// if (rc == DARTT_PROTOCOL_SUCCESS) 
+				// {
+				// 	sync_periph_buf_to_fields(config, region);
+				// } 
+				// else 
+				// {
+				// 	printf("read error %d\n", rc);
+				// }
 			}
 		}
 		
 		calculate_display_values(config.leaf_list);		
 
 		// Render UI
-		bool value_edited = render_live_expressions(config, plot, config_json_path, serial, ds);
+		bool value_edited = render_live_expressions(config, plot, config_json_path, dl);
 
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
 		render_plotting_menu(plot, config.root, config.subscribed_list);

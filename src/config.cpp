@@ -309,7 +309,7 @@ void collect_leaves(DarttField& root, std::vector<DarttField*> &leaf_list)
 }
 
 // Main config loader
-bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot, Serial & serial, dartt_sync_t& ds)
+bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot, Serial & serial, DarttLink & dl)
 {
     // Open and parse JSON file
     std::ifstream f(json_path);
@@ -334,8 +334,8 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
 	{
 		const json & ser_settings = j["serial_settings"];
 
-		ds.address = ser_settings.value("dartt_serial_address", 0);
-		ds.base_offset = ser_settings.value("dartt_blob_base_offset", 0);
+		dl.address = ser_settings.value("dartt_serial_address", 0);
+		dl.base_offset = ser_settings.value("dartt_blob_base_offset", 0);
 		uint32_t baudrate = ser_settings.value("baudrate", 921600);
 		if(baudrate != serial.get_baud_rate())
 		{
@@ -352,7 +352,7 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
 			}
 		}
 
-		comm_mode = (CommMode)ser_settings.value("comm_mode", (int)COMM_SERIAL);
+		dl.comm_mode = ser_settings.value("comm_mode", (int)DarttLink::COMM_SERIAL);
 
 		std::string ip = ser_settings.value("udp_ip", "192.168.1.100");
 		strncpy(udp_state.ip, ip.c_str(), sizeof(udp_state.ip) - 1);
@@ -404,13 +404,13 @@ bool load_dartt_config(const char* json_path, DarttConfig& config, Plotter& plot
     return true;
 }
 
-void save_serial_settings(json & j, Serial & serial, const dartt_sync_t & ds)
+void save_serial_settings(json & j, DarttLink & dl)
 {
 	json serial_settings;
-	serial_settings["dartt_serial_address"] = ds.address;
-	serial_settings["dartt_blob_base_offset"] = ds.base_offset;
-	serial_settings["baudrate"] = serial.get_baud_rate();
-	serial_settings["comm_mode"] = (int)comm_mode;
+	serial_settings["dartt_serial_address"] = dl.address;
+	serial_settings["dartt_blob_base_offset"] = dl.base_offset;
+	serial_settings["baudrate"] = dl.serial.get_baud_rate();
+	serial_settings["comm_mode"] = (int)dl.comm_mode;
 	serial_settings["udp_ip"] = std::string(udp_state.ip);
 	serial_settings["udp_port"] = udp_state.port;
 	serial_settings["tcp_ip"] = std::string(tcp_state.ip);
@@ -511,7 +511,7 @@ void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttF
 
 // Save config to JSON file (only adds ui objects, preserves everything else)
 // If plot is provided, also saves plotting config
-bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot, Serial & serial, dartt_sync_t& ds) 
+bool save_dartt_config(const char* json_path, const DarttConfig& config, const Plotter& plot, DarttLink& dl) 
 {
     // Read original JSON
     std::ifstream f_in(json_path);
@@ -547,7 +547,7 @@ bool save_dartt_config(const char* json_path, const DarttConfig& config, const P
     // Save plotting config if plotter provided
 	save_plotting_config(j, plot, config.leaf_list);
 
-	save_serial_settings(j, serial, ds);
+	save_serial_settings(j, dl);
 
     // Write back
     std::ofstream f_out(json_path);
