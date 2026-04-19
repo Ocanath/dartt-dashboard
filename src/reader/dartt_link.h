@@ -125,7 +125,7 @@ private:
 	std::vector<std::vector<uint8_t>> read_request_list_;
     std::mutex                        read_request_mutex_;
     size_t                            read_request_index_    = 0;
-    int                               read_request_timeout_ms = 100;
+    int                               read_request_timeout_ms = 10;
     bool                              awaiting_reply_        = false;
     std::chrono::steady_clock::time_point last_request_time_;
 
