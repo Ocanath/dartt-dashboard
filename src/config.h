@@ -115,8 +115,8 @@ struct DarttConfig
         : address(0)
         , nbytes(0)
         , nwords(0)
-        , ctl_buf(0)
-        , periph_buf(0)
+        , ctl_buf{}
+        , periph_buf{}
     {}
 
     ~DarttConfig() {
