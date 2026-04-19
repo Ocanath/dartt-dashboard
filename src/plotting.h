@@ -1,6 +1,7 @@
 #ifndef PLOTTING_H
 #define PLOTTING_H
 
+#include <mutex>
 #include <vector>
 #include <cstdint>
 #include "colors.h"
@@ -68,6 +69,8 @@ public:
 	bool init(int width, int height);
 
 	float sys_sec;	//global time
+
+	std::mutex plot_mutex;
 
 	// Render all lines directly to OpenGL framebuffer
 	void render();

@@ -104,6 +104,7 @@ int sat_pix_to_window(int val, int thresh)
 
 void Plotter::render()
 {
+	std::lock_guard<std::mutex> lock(plot_mutex);
 	// Save current matrix state
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();

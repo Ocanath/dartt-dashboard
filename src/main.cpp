@@ -45,7 +45,37 @@
 #include "elf_parser.h"
 
 #include <algorithm>
+#include <cstring>
 #include <string>
+
+struct ReadCallbackCtx {
+    DarttConfig* config;
+    Plotter*     plot;
+    DarttLink*   dl;
+};
+
+static void on_read_reply(const dartt_mem_t* periph, void* ctx)
+{
+    ReadCallbackCtx* c = (ReadCallbackCtx*)ctx;
+
+    {
+        std::lock_guard<std::mutex> lock(c->dl->periph_buf_mutex);
+        for (int i = 0; i < (int)c->config->subscribed_list.size(); i++)
+        {
+            DarttField* field = c->config->subscribed_list[i];
+            std::memcpy(&field->value.u8,
+                        c->config->periph_buf.buf + field->byte_offset,
+                        field->nbytes);
+        }
+        calculate_display_values(c->config->leaf_list);
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(c->plot->plot_mutex);
+        for (int i = 0; i < (int)c->plot->lines.size(); i++)
+            c->plot->lines[i].enqueue_data(c->plot->window_width);
+    }
+}
 
 // Helper: case-insensitive extension check
 static bool ends_with_ci(const std::string& str, const std::string& suffix) 
@@ -150,6 +180,9 @@ int main(int argc, char* argv[])
 	// Serial connection
 	DarttLink dl(config.ctl_buf, config.periph_buf);
 
+	static ReadCallbackCtx cb_ctx = { &config, &plot, &dl };
+	dl.set_read_reply_callback(on_read_reply, &cb_ctx);
+
 	// Main loop
 	bool running = true;
 	while (running)
@@ -218,6 +251,7 @@ int main(int argc, char* argv[])
 					dl.periph_base.size = config.periph_buf.size;
 				}
 				config_json_path = dropped_file_path;
+				dl.start();
 				printf("Loaded config from JSON: %s\n", dropped_file_path.c_str());
 			}
 			else
@@ -260,6 +294,7 @@ int main(int argc, char* argv[])
 				}
 				elf_load_error.clear();
 				ImGui::CloseCurrentPopup();
+				dl.start();
 				printf("Loaded config from ELF: %s (symbol: %s)\n",
 				       dropped_file_path.c_str(), var_name_buf);
 			}
@@ -274,67 +309,58 @@ int main(int argc, char* argv[])
 		collect_dirty_fields(config.leaf_list, config.dirty_list);
 
 		// WRITE: Send dirty fields to device
-		if (config.ctl_buf.buf && config.periph_buf.buf) 
+		if (config.ctl_buf.buf && config.periph_buf.buf)
 		{
 			std::vector<MemoryRegion> write_queue = build_write_queue(config);
-			for (MemoryRegion& region : write_queue) {
-				sync_fields_to_ctl_buf(config, region);
-
+			for (int i = 0; i < (int)write_queue.size(); i++)
+			{
+				sync_fields_to_ctl_buf(config, write_queue[i]);
 				dartt_mem_t slice = {
-					.buf = config.ctl_buf.buf + region.start_offset,
-					.size = region.length
+					.buf  = config.ctl_buf.buf + write_queue[i].start_offset,
+					.size = write_queue[i].length
 				};
-
-				// int rc = dartt_write_multi(&slice, &ds);
-				int rc = 0;	//TODO: replace this with an enqueue/write request function to dl. Should take priority over the subscriber read requests
-				if (rc == DARTT_PROTOCOL_SUCCESS) {
-					clear_dirty_flags(region);
-					printf("write ok: offset=%u len=%u\n", region.start_offset, region.length);
-				} else {
+				int rc = dl.enqueue_writes(slice);
+				if (rc == DARTT_PROTOCOL_SUCCESS)
+				{
+					clear_dirty_flags(write_queue[i]);
+					printf("write enqueued: offset=%u len=%u\n", write_queue[i].start_offset, write_queue[i].length);
+				}
+				else
+				{
 					printf("write error %d\n", rc);
 				}
 			}
 		}
 
-		// READ: Poll subscribed fields from device
+		// SUBSCRIBE: Rebuild DarttLink read request list when subscriptions change
+		static std::vector<DarttField*> prev_subscribed;
 		if (config.ctl_buf.buf && config.periph_buf.buf)
 		{
-			std::vector<MemoryRegion> read_queue = build_read_queue(config);
-			for (MemoryRegion& region : read_queue) 
+			if (config.subscribed_list != prev_subscribed)
 			{
-				dartt_mem_t slice = 
+				prev_subscribed = config.subscribed_list;
+				std::vector<MemoryRegion> read_regions = build_read_queue(config);
+				dl.clear_subscriptions();
+				for (int i = 0; i < (int)read_regions.size(); i++)
 				{
-					.buf = config.ctl_buf.buf + region.start_offset,
-					.size = region.length,
-				};
-				//TODO: load these into a mutex guarded queue of dartt_mem_t slices that the DarttLink uses to generate rolling read requests
-
-				// int rc = dartt_read_multi(&slice, &ds);
-				// int rc = 0;
-				// if (rc == DARTT_PROTOCOL_SUCCESS) 
-				// {
-				// 	sync_periph_buf_to_fields(config, region);
-				// } 
-				// else 
-				// {
-				// 	printf("read error %d\n", rc);
-				// }
+					dartt_mem_t region = {
+						.buf  = config.ctl_buf.buf + read_regions[i].start_offset,
+						.size = read_regions[i].length
+					};
+					dl.subscribe_region(region);
+				}
+				dl.build_read_requests();
 			}
 		}
-		
-		calculate_display_values(config.leaf_list);		
 
 		// Render UI
-		bool value_edited = render_live_expressions(config, plot, config_json_path, dl);
-
-		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);	//map out
-		render_plotting_menu(plot, config.root, config.subscribed_list);
-		plot.sys_sec = (float)(((double)SDL_GetTicks64())/1000.);	//outside of class, load the time in sec as timebase for signals that use it as default
-
-		//add new frame of data to each line, as determined by UI
-		for(int i = 0; i < plot.lines.size(); i++)
+		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);
+		plot.sys_sec = (float)(((double)SDL_GetTicks64())/1000.);
 		{
-			plot.lines[i].enqueue_data(plot.window_width);
+			std::lock_guard<std::mutex> lock(dl.periph_buf_mutex);
+			bool value_edited = render_live_expressions(config, plot, config_json_path, dl);
+			(void)value_edited;
+			render_plotting_menu(plot, config.root, config.subscribed_list);
 		}
 		
 
