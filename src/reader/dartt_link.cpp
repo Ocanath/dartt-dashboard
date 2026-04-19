@@ -10,6 +10,10 @@ DarttLink::DarttLink(dartt_mem_t & ctl, dartt_mem_t & periph)
 	cobs_enc_ = { enc_mem_, sizeof(enc_mem_), 0, COBS_ENCODED };
     cobs_dec_ = { dec_mem_, sizeof(dec_mem_), 0, COBS_DECODED };
 	msg_type = TYPE_SERIAL_MESSAGE;
+	address = 0;
+	base_offset = 0;
+	msg_type = TYPE_SERIAL_MESSAGE;
+	comm_mode = COMM_SERIAL;
 }
 
 DarttLink::~DarttLink()
