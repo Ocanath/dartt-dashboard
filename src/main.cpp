@@ -88,8 +88,40 @@ static void on_read_reply(const dartt_mem_t* periph, void* ctx)
     }
 }
 
+static const char* SETTINGS_FILE = "dartt_dashboard.ini";
+
+static std::string load_last_json_path()
+{
+	std::FILE* f = std::fopen(SETTINGS_FILE, "r");
+	if (!f)
+		return "";
+	char line[1024];
+	std::string result;
+	while (std::fgets(line, sizeof(line), f))
+	{
+		if (std::strncmp(line, "last_json=", 10) == 0)
+		{
+			result = std::string(line + 10);
+			while (!result.empty() && (result.back() == '\n' || result.back() == '\r'))
+				result.pop_back();
+			break;
+		}
+	}
+	std::fclose(f);
+	return result;
+}
+
+static void save_last_json_path(const std::string& path)
+{
+	std::FILE* f = std::fopen(SETTINGS_FILE, "w");
+	if (!f)
+		return;
+	std::fprintf(f, "last_json=%s\n", path.c_str());
+	std::fclose(f);
+}
+
 // Helper: case-insensitive extension check
-static bool ends_with_ci(const std::string& str, const std::string& suffix) 
+static bool ends_with_ci(const std::string& str, const std::string& suffix)
 {
 	if (suffix.size() > str.size()) 
 	{
@@ -111,8 +143,20 @@ int main(int argc, char* argv[])
 	bool show_elf_popup = false;
 	char var_name_buf[128] = "";
 	std::string elf_load_error;
-	bool pending_json_load = false;
 	std::string config_json_path = "";
+
+	std::string cached_json = load_last_json_path();
+	bool pending_json_load = false;
+	if (!cached_json.empty())
+	{
+		std::FILE* probe = std::fopen(cached_json.c_str(), "r");
+		if (probe)
+		{
+			std::fclose(probe);
+			dropped_file_path = cached_json;
+			pending_json_load = true;
+		}
+	}
 
 	// Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) 
@@ -263,6 +307,7 @@ int main(int argc, char* argv[])
 					dl.periph_base.size = config.periph_buf.size;
 				}
 				config_json_path = dropped_file_path;
+				save_last_json_path(config_json_path);
 				dl.start();
 				printf("Loaded config from JSON: %s\n", dropped_file_path.c_str());
 			}
