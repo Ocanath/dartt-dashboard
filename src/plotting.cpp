@@ -169,6 +169,12 @@ bool Line::enqueue_data(int screen_width)
 	{
 		return false;	//fail due to bad pointer reference
 	}
+	if (points.size() != enqueue_cap)
+	{
+		points.resize(enqueue_cap);
+		head_ = 0;
+		count_ = 0;
+	}
 	size_t tail = (head_ + count_) % enqueue_cap;
 	points[tail] = fpoint_t(*xsource, *ysource);
 	if (count_ < enqueue_cap)

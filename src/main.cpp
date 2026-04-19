@@ -71,7 +71,18 @@ static void on_read_reply(const dartt_mem_t* periph, void* ctx)
     }
 
     {
-        std::lock_guard<std::mutex> lock(c->plot->plot_mutex);
+		/*
+			Prevent read loop starvation.
+			This contends with the slow render() call for access of the shared plot ring buffer.
+			
+			In order to prevent the render from starving the read loop, we will reduce the amount of data which is loaded into the plot buffer and introduce some
+			jitter in the rendered visual by missing some enqueue calls with a try-lock scheme, rather than spinning until access is available.
+		*/
+		if(!c->plot->plot_mutex.try_lock()) 	
+		{
+			return;
+		}
+		std::lock_guard<std::mutex> lock(c->plot->plot_mutex, std::adopt_lock);
         for (int i = 0; i < (int)c->plot->lines.size(); i++)
             c->plot->lines[i].enqueue_data(c->plot->window_width);
     }
