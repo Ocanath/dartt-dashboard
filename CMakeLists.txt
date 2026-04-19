@@ -42,6 +42,9 @@ add_subdirectory(external/dartt-protocol)
 # nlohmann/json (provides: nlohmann_json::nlohmann_json)
 add_subdirectory(external/json)
 
+#libsoundio
+add_subdirectory(external/libsoundio)
+
 # libdwarf (provides: dwarf)
 # Disable components we don't need
 set(BUILD_DWARFDUMP OFF CACHE BOOL "" FORCE)
