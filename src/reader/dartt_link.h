@@ -94,7 +94,7 @@ private:
 
     void read_loop();
     void write_loop();
-    void process_frame();
+    int process_frame();
     void dispatch_read_requests(std::unique_lock<std::mutex>& bus_lock);
     void send_raw(const uint8_t* data, size_t len);
     int  read_bytes(uint8_t* buf, int max);

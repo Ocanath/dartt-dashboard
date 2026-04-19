@@ -473,7 +473,7 @@ void DarttLink::write_loop()
 // Frame processing (read thread)
 // ---------------------------------------------------------------------------
 
-void DarttLink::process_frame()
+int DarttLink::process_frame()
 {
     dartt_buffer_t frame = {
         cobs_dec_.buf,
@@ -486,18 +486,21 @@ void DarttLink::process_frame()
     dartt_buffer_t pld_msg_buf = { pld_buf, sizeof(pld_buf), 0 };
     pld.msg = pld_msg_buf;
 
-    if (dartt_frame_to_payload(&frame, msg_type, PAYLOAD_COPY, &pld) != DARTT_PROTOCOL_SUCCESS)
+	int rc = dartt_frame_to_payload(&frame, msg_type, PAYLOAD_COPY, &pld);
+    if (rc != DARTT_PROTOCOL_SUCCESS)
 	{
-		return;
+		return rc;
 	}
 
     if (pld.msg.len < NUM_BYTES_READ_REPLY_OVERHEAD_PLD)
-        return;
+	{
+        return DARTT_ERROR_MALFORMED_MESSAGE;
+	}
 
     uint16_t index_field = (uint16_t)pld.msg.buf[0] | ((uint16_t)pld.msg.buf[1] << 8);
-    if (!(index_field & READ_WRITE_BITMASK))
+    if ((index_field & READ_WRITE_BITMASK) != 0)
 	{
-		return;
+		return DARTT_ERROR_MALFORMED_MESSAGE;
 	}
 
     if (bin_logging_enabled && bin_log_file_ && cobs_enc_.length > 0)
@@ -514,7 +517,12 @@ void DarttLink::process_frame()
 
     {
         std::lock_guard<std::mutex> lock(periph_buf_mutex);
-        dartt_parse_read_reply(&pld, &synthetic_req, &periph_base);
+        rc = dartt_parse_read_reply(&pld, &synthetic_req, &periph_base);
+		if(rc != DARTT_PROTOCOL_SUCCESS)
+		{
+			return rc;
+		}
+
     }
 
     awaiting_reply_ = false;
@@ -523,6 +531,7 @@ void DarttLink::process_frame()
 	{
 		on_read_reply_cb_(&periph_base, on_read_reply_ctx_);
 	}
+	return DARTT_PROTOCOL_SUCCESS;
 }
 
 void DarttLink::dispatch_read_requests(std::unique_lock<std::mutex>& bus_lock)
@@ -538,9 +547,8 @@ void DarttLink::dispatch_read_requests(std::unique_lock<std::mutex>& bus_lock)
     if (read_request_list_.empty())
         return;
 
-    const std::vector<uint8_t>& frame =
-        read_request_list_[read_request_index_ % read_request_list_.size()];
-    read_request_index_++;
+    const std::vector<uint8_t>& frame = read_request_list_[read_request_index_];
+    read_request_index_ = (read_request_index_ + 1) % read_request_list_.size();
 
 	bus_lock.lock();   // re-acquire — held until reply arrives, blocking write thread
 	send_raw(frame.data(), frame.size());
