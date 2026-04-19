@@ -50,6 +50,7 @@ public:
     // Subscribe a memory region for automatic read polling by the write thread.
     // Coalescing is the caller's responsibility — DarttLink has no field knowledge.
     void subscribe_region(dartt_mem_t region);
+	void build_read_requests();
     void clear_subscriptions();
 
     // Half-duplex (default): bus_mutex_ arbitrates read vs write threads.
@@ -98,28 +99,15 @@ private:
     void send_raw(const uint8_t* data, size_t len);
     int  read_bytes(uint8_t* buf, int max);
 
-	struct read_request
-	{
-		unsigned char mem[
-			NUM_BYTES_ADDRESS +
-			NUM_BYTES_INDEX +
-			NUM_BYTES_NUMWORDS_READREQUEST +
-			NUM_BYTES_CHECKSUM +
-			NUM_BYTES_COBS_OVERHEAD
-		];
-
-		size_t len;
-	};
-
-	//Helper to create a read request frame
-	int create_read_request_frame(dartt_mem_t & ctl, read_request & frame);
+	int create_read_request_frame(dartt_mem_t & ctl, std::vector<uint8_t> & frame);
 	int create_write_frame(dartt_mem_t & ctl, std::vector<uint8_t> & frame);
 
-	void dispatch_read_requests();	//go thru the subscribed regions, create read requests, to fill the queue of outgoing. Called every time the read request queue is drained.
+	int enqueue_read_requests(dartt_mem_t & ctl_region);
 
 	size_t target_serbuf_rx_size = 32;	//TODO: make a setter/getter for this? or set on init
+	size_t target_serbuf_tx_size = 32;	//TODO: make a setter/getter for this? or set on init
 
-    std::thread        read_thread_;
+	std::thread        read_thread_;
     std::thread        write_thread_;
     std::atomic<bool>  running_{false};
 
@@ -134,9 +122,10 @@ private:
     std::mutex                       tx_queue_mutex_;
     std::condition_variable          tx_cv_;
 
-    // Subscribed regions — write thread polls these when queue is empty.
+	std::vector<std::vector<uint8_t>> read_request_list_;
+    std::mutex                        read_request_mutex_;
+
     std::vector<dartt_mem_t> subscribed_regions_;
-    std::mutex               subscribed_mutex_;
 
     // COBS accumulation (read thread only — no sharing, no lock needed)
     uint8_t    enc_mem_[DARTT_LINK_BUF_SIZE];

@@ -124,13 +124,11 @@ int DarttLink::enqueue_writes(dartt_mem_t & ctl_slice)
 
 void DarttLink::subscribe_region(dartt_mem_t region)
 {
-    std::lock_guard<std::mutex> lock(subscribed_mutex_);
     subscribed_regions_.push_back(region);
 }
 
 void DarttLink::clear_subscriptions()
 {
-    std::lock_guard<std::mutex> lock(subscribed_mutex_);
     subscribed_regions_.clear();
 }
 
@@ -270,15 +268,12 @@ int DarttLink::create_write_frame(dartt_mem_t & ctl, std::vector<uint8_t> & fram
 	return rc;
 }
 
-int DarttLink::create_read_request_frame(dartt_mem_t & ctl, read_request & frame)
+int DarttLink::create_read_request_frame(dartt_mem_t & ctl, std::vector<uint8_t> & frame)
 {
 	assert(ctl_base.size == periph_base.size);
     assert(ctl.buf != NULL && ctl_base.buf != NULL);
 	assert(periph_base.buf != NULL);
 
-	frame.len = 0;	//delete first - make sure it's invalidated until we finish
-
-    // Runtime checks for buffer bounds - these could be caused by developer error in ctl configuration
     if(ctl.size == 0)
     {
         return DARTT_ERROR_INVALID_ARGUMENT;
@@ -291,11 +286,6 @@ int DarttLink::create_read_request_frame(dartt_mem_t & ctl, read_request & frame
     {
         return DARTT_ERROR_MEMORY_OVERRUN;
     }
-    if (ctl.buf + ctl.size > ctl_base.buf + ctl_base.size)
-    {
-        return DARTT_ERROR_MEMORY_OVERRUN;
-    }
-    //ensure the read reply we're requesting won't overrun the read buffer
     size_t nb_overhead_read_reply = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;
     if(msg_type == TYPE_SERIAL_MESSAGE)
     {
@@ -305,7 +295,7 @@ int DarttLink::create_read_request_frame(dartt_mem_t & ctl, read_request & frame
     {
 		nb_overhead_read_reply += NUM_BYTES_CHECKSUM;
     }
-	if(ctl.size + nb_overhead_read_reply > target_serbuf_rx_size)
+	if(ctl.size + nb_overhead_read_reply > target_serbuf_tx_size)
 	{
 		return DARTT_ERROR_MEMORY_OVERRUN;
 	}
@@ -315,18 +305,21 @@ int DarttLink::create_read_request_frame(dartt_mem_t & ctl, read_request & frame
     int field_index = index_of_field( (void*)(&ctl.buf[0]), (void*)(&ctl_base.buf[0]), ctl_base.size );
     if(field_index < 0)
     {
-        return field_index; //negative values are error codes, return if you get negative value
+        return field_index;
     }
     misc_read_message_t read_msg =
     {
             .address = misc_address,
-            .index = (uint16_t)(field_index + base_offset),	//load with offset to the destination
+            .index = (uint16_t)(field_index + base_offset),
             .num_bytes = (uint16_t)ctl.size
     };
 
+	size_t framesize = NUM_BYTES_ADDRESS + NUM_BYTES_INDEX + NUM_BYTES_NUMWORDS_READREQUEST + NUM_BYTES_CHECKSUM + NUM_BYTES_COBS_OVERHEAD;
+	frame.resize(framesize);
+
 	dartt_buffer_t tx_buf = {
-		.buf = frame.mem,
-		.size = sizeof(frame.mem),
+		.buf = frame.data(),
+		.size = frame.size(),
 		.len = 0
 	};
     int rc = dartt_create_read_frame(&read_msg, msg_type, &tx_buf);
@@ -345,16 +338,92 @@ int DarttLink::create_read_request_frame(dartt_mem_t & ctl, read_request & frame
 	{
 		return rc;
 	}
-	frame.len = cobs_tx.length;//finally load length to validate frame
+	frame.resize(cobs_tx.length);
 	return rc;
 }
 
 
-
-
-void DarttLink::dispatch_read_requests()
+int DarttLink::enqueue_read_requests(dartt_mem_t & ctl)
 {
+	assert(ctl_base.buf != NULL && periph_base.buf != NULL);
+	assert(ctl_base.buf != periph_base.buf);	//basic sanity check - the master and shadow copy can't point to the same memory
 
+	if(ctl_base.size != periph_base.size)
+	{
+		return DARTT_ERROR_MEMORY_OVERRUN;
+	}
+    if(!(ctl.buf >= ctl_base.buf && ctl.buf < ctl_base.buf + ctl_base.size))
+    {
+        return DARTT_ERROR_MEMORY_OVERRUN;
+    }
+    size_t nbytes_read_overhead = NUM_BYTES_READ_REPLY_OVERHEAD_PLD;  //
+    if(msg_type == TYPE_SERIAL_MESSAGE)
+    {
+		nbytes_read_overhead += (NUM_BYTES_ADDRESS + NUM_BYTES_CHECKSUM);
+    }
+    else if(msg_type == TYPE_ADDR_MESSAGE)
+    {
+        nbytes_read_overhead += NUM_BYTES_CHECKSUM;
+    }
+    else if(msg_type != TYPE_ADDR_CRC_MESSAGE)
+    {
+        return DARTT_ERROR_INVALID_ARGUMENT;
+    }
+
+	if(target_serbuf_tx_size < nbytes_read_overhead + sizeof(int32_t))
+	{
+		return DARTT_ERROR_MEMORY_OVERRUN;
+	}
+	size_t rsize = target_serbuf_tx_size - nbytes_read_overhead;
+    rsize -= rsize % sizeof(uint32_t); //after making sure the dartt framing bytes are removed, you must ensure that the read size is 32 bit aligned for index_of_field
+
+    int num_full_reads_required = (int)(ctl.size/rsize); 
+    int i = 0;
+    for(i = 0; i < num_full_reads_required; i++)
+    {
+        dartt_mem_t ctl_chunk = 
+        {
+            .buf = ctl.buf + rsize * i,
+            .size = rsize,
+        };
+        // int rc = dartt_ctl_read(&ctl_chunk, psync);
+		std::vector<uint8_t> frame;
+		int rc = create_read_request_frame(ctl_chunk, frame);
+        if(rc != DARTT_PROTOCOL_SUCCESS)
+        {
+            return rc;
+        }
+		read_request_list_.push_back(std::move(frame));
+    }
+	size_t last_read_size = ctl.size % rsize;
+	if(last_read_size != 0)
+	{
+		dartt_mem_t ctl_last_chunk = 
+		{
+			.buf = ctl.buf + rsize * i,
+			.size = last_read_size,
+		};
+		std::vector<uint8_t> frame;
+		int rc = create_read_request_frame(ctl_last_chunk, frame);
+        if(rc != DARTT_PROTOCOL_SUCCESS)
+        {
+            return rc;
+        }
+		read_request_list_.push_back(std::move(frame));
+	}
+	return DARTT_PROTOCOL_SUCCESS;
+}
+
+
+
+void DarttLink::build_read_requests()
+{
+	std::lock_guard<std::mutex> lock(read_request_mutex_);
+	read_request_list_.clear();
+	for(dartt_mem_t region : subscribed_regions_)
+	{
+		enqueue_read_requests(region);
+	}
 }
 
 // ---------------------------------------------------------------------------
