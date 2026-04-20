@@ -433,10 +433,10 @@ void save_plotting_config(json& j, const Plotter& plot, const std::vector<DarttF
 
         // X source data
         json xsource_data;
-        if (line.xsource == &plot.sys_sec)
+        if (line.xsource == &plot.sys_usec)
         {
             xsource_data["byte_offset"] = -1;
-            xsource_data["name"] = "sys_sec";
+            xsource_data["name"] = "sys_usec";
         }
         else if (line.xsource == nullptr)
         {
@@ -616,9 +616,9 @@ void load_plotting_config(const json& j, Plotter& plot, const std::vector<DarttF
             int32_t offset = xdata.value("byte_offset", -2);
             std::string name = xdata.value("name", "none");
 
-            if (offset == -1 && name == "sys_sec")
+            if (offset == -1 && name == "sys_usec")
             {
-                line.xsource = &plot.sys_sec;
+                line.xsource = &plot.sys_usec;
             }
             else if (offset == -2 || name == "none")
             {
@@ -633,15 +633,15 @@ void load_plotting_config(const json& j, Plotter& plot, const std::vector<DarttF
                 }
                 else
                 {
-                    printf("Warning: Could not find xsource field '%s' at offset %d, defaulting to sys_sec\n",
+                    printf("Warning: Could not find xsource field '%s' at offset %d, defaulting to sys_usec\n",
                            name.c_str(), offset);
-                    line.xsource = &plot.sys_sec;
+                    line.xsource = &plot.sys_usec;
                 }
             }
         }
         else
         {
-            line.xsource = &plot.sys_sec;
+            line.xsource = &plot.sys_usec;
         }
 
         // Y source

@@ -639,12 +639,12 @@ static DarttField* render_field_selector_tree(DarttField* root)
 bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<DarttField*> &subscribed_list)
 {
 	ImGui::Begin("Plot Settings");
-
+	ImGui::Text("Freq: %f", plot.avg_sampling_freq);
 	// Add line button
 	if (ImGui::SmallButton("+"))
 	{
 		plot.lines.push_back(Line());
-		plot.lines.back().xsource = &plot.sys_sec;
+		plot.lines.back().xsource = &plot.sys_usec;
 		int color_index = (plot.lines.size() % NUM_COLORS);
 		plot.lines.back().color = template_colors[color_index];
 		//consider automatic "Clear" here - will look more professional (and it's really easy to implement), but does wipe data
@@ -657,6 +657,9 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 	ImGui::SameLine(ImGui::GetWindowWidth() - clear_width - ImGui::GetStyle().WindowPadding.x);
 	if (ImGui::Button("Clear"))
 	{
+		plot.sum_tdif = 0;
+		plot.count = 0;
+		plot.prev_time_us = 0;
 		for (size_t i = 0; i < plot.lines.size(); i++)
 		{
 			plot.lines[i].points.clear();
@@ -692,10 +695,10 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		if (ImGui::RadioButton("Time Mode", &mode, TIME_MODE))
 		{
 			line.mode = TIME_MODE;
-			// Default to sys_sec if no X source assigned
+			// Default to sys_usec if no X source assigned
 			if (line.xsource == nullptr)
 			{
-				line.xsource = &plot.sys_sec;
+				line.xsource = &plot.sys_usec;
 			}
 		}
 		ImGui::SameLine();
@@ -708,9 +711,9 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		ImGui::Text("X Source:");
 		ImGui::SameLine();
 		const char* x_preview = "None";
-		if (line.xsource == &plot.sys_sec)
+		if (line.xsource == &plot.sys_usec)
 		{
-			x_preview = "sys_sec";
+			x_preview = "sys_usec";
 		}
 		else if (line.xsource != nullptr)
 		{
@@ -727,9 +730,9 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		ImGui::SetNextItemWidth(150.0f);
 		if (ImGui::BeginCombo("##xsrc", x_preview))
 		{
-			if (ImGui::Selectable("sys_sec", line.xsource == &plot.sys_sec))
+			if (ImGui::Selectable("sys_usec", line.xsource == &plot.sys_usec))
 			{
-				line.xsource = &plot.sys_sec;
+				line.xsource = &plot.sys_usec;
 			}
 			ImGui::Separator();
 			DarttField* selected = render_field_selector_tree(&root);
@@ -833,6 +836,8 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 	ImGui::RadioButton("UDP", &mode, DarttLink::COMM_UDP);
 	ImGui::SameLine();
 	ImGui::RadioButton("TCP", &mode, DarttLink::COMM_TCP);
+	ImGui::SameLine();
+	ImGui::Checkbox("Streaming", &dl.streaming_mode);
 	int new_mode = mode;
 	if (new_mode != dl.comm_mode)
 	{

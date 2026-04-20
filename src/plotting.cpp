@@ -69,7 +69,7 @@ Plotter::Plotter()
 	, window_height(0)
 	, num_widths(1)
 	, lines()
-	, sys_sec(0.0f)
+	, sys_usec(0.0f)
 {
 }
 
@@ -86,7 +86,7 @@ bool Plotter::init(int width, int height)
 
 	// Initialize with one line
 	lines.resize(1);
-	lines[0].xsource = &sys_sec;
+	lines[0].xsource = &sys_usec;
 	int color_idx = (lines.size() % NUM_COLORS);
 	lines[0].color = template_colors[color_idx];
 	return true;

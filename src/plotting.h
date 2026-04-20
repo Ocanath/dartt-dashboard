@@ -69,12 +69,19 @@ public:
 	// Initialize the plotter with dimensions and number of widths for buffer
 	bool init(int width, int height);
 
-	float sys_sec;	//global time
+	float sys_usec;	//global time
+
+	//sampling
+	float avg_sampling_freq = 0;
+	int64_t sum_tdif = 0;
+	int64_t prev_time_us = 0;
+	uint64_t count = 0;
 
 	std::mutex plot_mutex;
 
 	// Render all lines directly to OpenGL framebuffer
 	void render();
+
 };
 
 #endif // PLOTTING_H

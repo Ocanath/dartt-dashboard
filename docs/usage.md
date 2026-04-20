@@ -61,7 +61,7 @@ The line color can be selected with a Color Wheel.
 
 #### Data Source
 
-The symbol to plot can be selected in the "Y Source" and "X Source" fields. In Time Mode, the X Source should be selected as "sys_sec" (time in seconds since the software began running), unless the Dartt profile has a monotonically increasing time variable (such as a 'tick' or millisecond value, loop iteration, etc.). The actual units of the X Source are irrelevant in Time Mode, since the X axis is automatically scaled to fit the entire window on screen. If swapping units or source variable while data is already on screen, it is recommended to hit the "Clear" button - otherwise you will have to wait until all old data is cleared out of the buffer for the content displayed on screen to be sensible. 
+The symbol to plot can be selected in the "Y Source" and "X Source" fields. In Time Mode, the X Source should be selected as "sys_usec" (time in micro seconds since the software began running), unless the Dartt profile has a monotonically increasing time variable (such as a 'tick' or millisecond value, loop iteration, etc.). The actual units of the X Source are irrelevant in Time Mode, since the X axis is automatically scaled to fit the entire window on screen. If swapping units or source variable while data is already on screen, it is recommended to hit the "Clear" button - otherwise you will have to wait until all old data is cleared out of the buffer for the content displayed on screen to be sensible. 
 
 #### New Lines
 

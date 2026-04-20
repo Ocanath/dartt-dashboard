@@ -58,6 +58,10 @@ public:
     // Full-duplex: both threads skip bus_mutex_ entirely.
     bool is_full_duplex = false;
 
+    // When true, no read requests are dispatched — device pushes data unprompted.
+    // Subscribed fields remain available for display and plotting.
+    bool streaming_mode = false;
+
 
     // Binary frame logger — off by default. Appends raw COBS-delimited
     // read-reply frames verbatim from the wire, no timestamp prefix.

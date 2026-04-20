@@ -68,10 +68,24 @@ static void on_read_reply(const dartt_mem_t* periph, void* ctx)
                         c->config->periph_buf.buf + field->byte_offset,
                         field->nbytes);
         }
+
+		// int32_t audio_v = *((int32_t*)(&c->config->periph_buf.buf[72*4]));
+		// printf("%d\n", audio_v);
+
         calculate_display_values(c->config->leaf_list);
     }
 
-    c->plot->sys_sec = time_get_sec();
+	int64_t t_us = time_get_us();
+    c->plot->sys_usec = (float)t_us;
+
+	int64_t dif = t_us - c->plot->prev_time_us;
+	if(c->plot->prev_time_us != 0 && dif != 0)
+	{
+		c->plot->count++;
+		c->plot->sum_tdif += dif;
+		c->plot->avg_sampling_freq = ((float)(c->plot->count)) / ((float)(c->plot->sum_tdif)) * 1e6;
+	}
+	c->plot->prev_time_us = t_us;
 
     {
 		/*
@@ -294,7 +308,7 @@ int main(int argc, char* argv[])
 			// Detach external references before replacing config
 			for (size_t i = 0; i < plot.lines.size(); i++)
 			{
-				plot.lines[i].xsource = &plot.sys_sec;
+				plot.lines[i].xsource = &plot.sys_usec;
 				plot.lines[i].ysource = nullptr;
 			}
 			dl.ctl_base.buf = nullptr;
@@ -329,7 +343,7 @@ int main(int argc, char* argv[])
 			// User clicked Load - detach external references
 			for (size_t i = 0; i < plot.lines.size(); i++)
 			{
-				plot.lines[i].xsource = &plot.sys_sec;
+				plot.lines[i].xsource = &plot.sys_usec;
 				plot.lines[i].ysource = nullptr;
 			}
 			dl.ctl_base.buf = nullptr;
@@ -395,24 +409,31 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		// SUBSCRIBE: Rebuild DarttLink read request list when subscriptions change
+		// SUBSCRIBE: Rebuild DarttLink read request list when subscriptions or mode change
 		static std::vector<DarttField*> prev_subscribed;
+		static bool prev_streaming_mode = false;
 		if (config.ctl_buf.buf && config.periph_buf.buf)
 		{
-			if (config.subscribed_list != prev_subscribed)
+			bool dirty = (config.subscribed_list != prev_subscribed)
+			          || (dl.streaming_mode != prev_streaming_mode);
+			if (dirty)
 			{
-				prev_subscribed = config.subscribed_list;
-				std::vector<MemoryRegion> read_regions = build_read_queue(config);
+				prev_subscribed     = config.subscribed_list;
+				prev_streaming_mode = dl.streaming_mode;
 				dl.clear_subscriptions();
-				for (int i = 0; i < (int)read_regions.size(); i++)
+				if (!dl.streaming_mode)
 				{
-					dartt_mem_t region = {
-						.buf  = config.ctl_buf.buf + read_regions[i].start_offset,
-						.size = read_regions[i].length
-					};
-					dl.subscribe_region(region);
+					std::vector<MemoryRegion> read_regions = build_read_queue(config);
+					for (int i = 0; i < (int)read_regions.size(); i++)
+					{
+						dartt_mem_t region = {
+							.buf  = config.ctl_buf.buf + read_regions[i].start_offset,
+							.size = read_regions[i].length
+						};
+						dl.subscribe_region(region);
+					}
 				}
-				dl.build_read_requests();
+				dl.build_read_requests();  // builds empty list in streaming mode
 			}
 		}
 
