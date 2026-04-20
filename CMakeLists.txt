@@ -79,6 +79,7 @@ add_executable(${PROJECT_NAME}
 	src/plotting.cpp
 	src/colors.cpp
 	src/time_util.cpp
+	src/wav_writer.cpp
 	# src/audio/audio_engine.cpp
 )
 

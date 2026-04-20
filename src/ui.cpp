@@ -666,7 +666,22 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		}
 	}
 	ImGui::Separator();
-	
+
+	if (plot.wav_writer.is_open())
+	{
+		if (ImGui::Button("Stop Recording"))
+			plot.wav_writer.close(plot.avg_sampling_freq);
+		ImGui::SameLine();
+		ImGui::TextUnformatted("Recording...");
+	}
+	else
+	{
+		if (ImGui::Button("Record WAV"))
+			plot.wav_writer.open("capture.wav");
+	}
+
+	ImGui::Separator();
+
 	int line_to_remove = -1;
 	for (size_t line_idx = 0; line_idx < plot.lines.size(); line_idx++)
 	{
@@ -796,6 +811,8 @@ bool render_plotting_menu(Plotter &plot, DarttField& root, const std::vector<Dar
 		ImGui::Text("Buffer Size");
 		ImGui::SameLine();
 		ImGui::InputScalar("##buffsersize", ImGuiDataType_U32, &line.enqueue_cap, 0, 0, "%d");
+
+		ImGui::Checkbox("Audio Out", &line.audio_subscribe);
 
 		// Color picker
 		ImGui::Text("Color:");

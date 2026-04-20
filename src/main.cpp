@@ -87,6 +87,19 @@ static void on_read_reply(const dartt_mem_t* periph, void* ctx)
 	}
 	c->plot->prev_time_us = t_us;
 
+    // WAV capture — independent of plot_mutex, always fires
+    if (c->plot->wav_writer.is_open())
+    {
+        float sum = 0.f;
+        for (int i = 0; i < (int)c->plot->lines.size(); i++)
+        {
+            Line& line = c->plot->lines[i];
+            if (line.audio_subscribe && line.ysource != nullptr)
+                sum += (*line.ysource) * line.yscale + line.yoffset;
+        }
+        c->plot->wav_writer.write_sample(sum);
+    }
+
     {
 		/*
 			Prevent read loop starvation.

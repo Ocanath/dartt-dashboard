@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstdint>
 #include "colors.h"
+#include "wav_writer.h"
 
 struct fpoint_t
 {
@@ -48,6 +49,8 @@ public:
 	size_t   head_;   // index of oldest sample
 	size_t   count_;  // number of valid samples
 
+	bool audio_subscribe = false;
+
 	Line();
 	Line(int capacity);
 
@@ -78,6 +81,8 @@ public:
 	uint64_t count = 0;
 
 	std::mutex plot_mutex;
+
+	WavWriter wav_writer;
 
 	// Render all lines directly to OpenGL framebuffer
 	void render();
