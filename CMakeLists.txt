@@ -78,7 +78,8 @@ add_executable(${PROJECT_NAME}
 	src/buffer_sync.cpp
 	src/plotting.cpp
 	src/colors.cpp
-	src/audio/audio_engine.cpp
+	src/time_util.cpp
+	# src/audio/audio_engine.cpp
 )
 
 # Debug symbols

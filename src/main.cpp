@@ -44,6 +44,7 @@
 #include "plotting.h"
 #include "elf_parser.h"
 
+#include "time_util.h"
 #include <algorithm>
 #include <cstring>
 #include <string>
@@ -69,6 +70,8 @@ static void on_read_reply(const dartt_mem_t* periph, void* ctx)
         }
         calculate_display_values(c->config->leaf_list);
     }
+
+    c->plot->sys_sec = time_get_sec();
 
     {
 		/*
@@ -157,6 +160,8 @@ int main(int argc, char* argv[])
 			pending_json_load = true;
 		}
 	}
+
+	time_start();
 
 	// Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) 
@@ -413,7 +418,6 @@ int main(int argc, char* argv[])
 
 		// Render UI
 		SDL_GetWindowSize(window, &plot.window_width, &plot.window_height);
-		plot.sys_sec = (float)(((double)SDL_GetTicks64())/1000.);
 		{
 			std::lock_guard<std::mutex> lock(dl.periph_buf_mutex);
 			bool value_edited = render_live_expressions(config, plot, config_json_path, dl);
