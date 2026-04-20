@@ -95,7 +95,21 @@ static void on_read_reply(const dartt_mem_t* periph, void* ctx)
         {
             Line& line = c->plot->lines[i];
             if (line.audio_subscribe && line.ysource != nullptr)
-                sum += (*line.ysource) * line.yscale + line.yoffset;
+            {
+ 				// sum += (*line.ysource) * line.yscale + line.yoffset;
+				float value = (*line.ysource) * line.yscale + line.yoffset;
+				float half_height = c->plot->window_height/2;
+				if(value > half_height)
+				{
+					value = half_height;
+				}
+				else if(value < -half_height)
+				{
+					value = -half_height;
+				}
+				value = value/half_height;
+				sum += value;
+			}
         }
         c->plot->wav_writer.write_sample(sum);
     }

@@ -148,7 +148,7 @@ void Plotter::render()
 				y = (int)(pt.y * line->yscale + line->yoffset + (float)window_height / 2.f);
 			}
 			x = sat_pix_to_window(x, window_width);
-			y = sat_pix_to_window(y, window_width);
+			y = sat_pix_to_window(y, window_height);
 			glVertex2f(x, y);
 		}
 		glEnd();
