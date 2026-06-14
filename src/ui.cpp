@@ -860,7 +860,10 @@ bool render_live_expressions(DarttConfig& config, Plotter& plot, const std::stri
 		ImGui::Text("Dartt Address: ");
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(50);
+		unsigned char prev_address = dl.address;
 		ImGui::InputScalar("##dartt_address", ImGuiDataType_U8, &dl.address);
+		if (dl.address != prev_address)
+			config.subscribed_dirty = true;
 	}
 
 	{
